@@ -541,7 +541,7 @@ class MultiArmRRT:
         check_relative_pose: bool = False,
         show: bool = False,
     ) -> bool: 
-        
+        #print('Int Check Collision')
         if check_relative_pose:
             passed = self.check_relative_pose(qpos=robot_qpos, physics=physics)
             if not passed:

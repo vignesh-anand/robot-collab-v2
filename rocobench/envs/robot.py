@@ -27,6 +27,7 @@ class SimRobot:
         ee_rest_quat: np.ndarray = np.array([0, 1, 0, 0]),
         use_ee_rest_quat: bool = False,
     ):
+        self.name=name
         self.ik_joint_names = ik_joint_names
         self.ee_site_name = ee_site_name
         self.ee_link_names = ee_link_names

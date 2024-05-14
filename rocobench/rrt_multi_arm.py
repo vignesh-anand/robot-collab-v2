@@ -464,6 +464,7 @@ class MultiArmRRT:
             collided_id1 = collided_id1[undesired_mask]
             collided_id2 = collided_id2[undesired_mask]
         
+        # print(collided_id1, collided_id2)
         # TODO: if an object is being grasped, don't allow it to collide with other objects
         # if allow_grasp and check_grasp_ids is not None:
         #     

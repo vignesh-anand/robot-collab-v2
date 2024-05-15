@@ -15,8 +15,9 @@
     </asset>
     
     <worldbody>
-    <body name="cabinet" pos="-0.7 0.5 0.47"  quat="0.707 0 0 0.707" > 
-        <body name="cabinet_body">
+    <body name="cabinet" pos="-0.7 0.5 0.5"  quat="0.707 0 0 0.707" >
+    <!-- <freejoint name="cabinet_joint" />  -->
+        <body name="cabinet_body" pos = "0. 0. 0.1">
         
             <geom class="hinge_collision" name="cabinet_right" pos="0.34 0 0" size="0.01 0.2 0.6" type="box" mass=".2"/>
             <geom class="hinge_collision" name="cabinet_left" pos="-0.34 0 0" size="0.01 0.2 0.6" type="box" mass=".2"/>

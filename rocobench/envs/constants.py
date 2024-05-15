@@ -80,6 +80,13 @@ UR5E_ROBOTIQ_CONSTANTS=dict(
     ee_site_name="robotiq_ee",
     grasp_actuator="robotiq_fingers_actuator",
     weld_body_name="robotiq",
+    mesh_to_geoms = {"robotiq_assets/base_mount.stl": ["base_mount_collision"],
+                    "robotiq_assets/base.stl": ["base_collision"],
+                    "robotiq_assets/driver.stl": ["right_driver_collision", "left_driver_collision"],
+                    "robotiq_assets/coupler.stl": ["right_coupler_collision","left_coupler_collision"],
+                    "robotiq_assets/spring_link.stl": ["right_spring_collision","left_spring_collision"],
+                    "robotiq_assets/follower.stl": ["right_follower_collision", "left_follower_collision"]
+                    },
 )
 
 UR5E_SUCTION_CONSTANTS=dict(
@@ -147,6 +154,7 @@ UR5E_SUCTION_CONSTANTS=dict(
     grasp_actuator="adhere_gripper",
     weld_body_name="suction",
 )
+
 PANDA_CONSTANTS=dict(
     name="panda",
     all_joint_names=[
@@ -191,6 +199,20 @@ PANDA_CONSTANTS=dict(
         "joint7": "actuator7",
         "split": "actuator8",
     },
+    mesh_to_geoms = {
+        "assets/link0.stl": ["link0_collision"],
+        "assets/link1.stl": ["link1_collision"],
+        "assets/link2.stl": ["link2_collision"],
+        "assets/link3.stl": ["link3_collision"],
+        "assets/link4.stl": ["link4_collision"],
+        "assets/link5_collision_0.obj": ["link5_collision_0"],
+        "assets/link5_collision_1.obj": ["link5_collision_1"],
+        "assets/link5_collision_2.obj": ["link5_collision_2"],
+        "assets/link6.stl": ["link6_collision"],
+        "assets/link7.stl": ["link7_collision"],
+        "assets/hand.stl": ["hand_collision"],
+        "assets/finger_0.obj": ["left_finger_0_collision","right_finger_0_collision"],
+    },
     grasp_actuator="panda_gripper_actuator",
     all_link_names=[
         "",
@@ -222,6 +244,134 @@ PANDA_CONSTANTS=dict(
     ee_site_name="ee",
     weld_body_name="panda",
 )
+
+
+KINOVA_CONSTANTS=dict(
+    name="kinovagen3",
+    all_joint_names=[
+        "base_joint",
+        "joint_1",
+        "joint_2",
+        "joint_3",
+        "joint_4",
+        "joint_5",
+        "joint_6",
+        "joint_7",
+        #Fixed Joints
+        "joint_0",
+        "end_effector", 
+        "tool_frame_joint",
+        "gripper_base_joint",
+        "finger_joint",
+        "left_outer_finger_joint",
+        "left_inner_knuckle_joint",
+        "left_inner_finger_joint",
+        "left_inner_finger_pad_joint",
+        "right_outer_knuckle_joint",
+        "right_outer_finger_joint",
+        "right_inner_knuckle_joint",
+        "right_inner_finger_joint",
+        "right_inner_finger_pad_joint"
+    ],
+    ik_joint_names=[
+        "base_joint",
+        "joint_1",
+        "joint_2",
+        "joint_3",
+        "joint_4",
+        "joint_5",
+        "joint_6",
+        "joint_7",
+    ],
+    arm_joint_names=[
+        "joint_1",
+        "joint_2",
+        "joint_3",
+        "joint_4",
+        "joint_5",
+        "joint_6",
+        "joint_7",
+        ],
+    actuator_info={
+        "base_joint":"base_actuator",
+        "joint1": "actuator1",
+        "joint2": "actuator2",
+        "joint3": "actuator3",
+        "joint4": "actuator4",
+        "joint5": "actuator5",
+        "joint6": "actuator6",
+        "joint7": "actuator7",
+        # "split": "actuator8",
+    },
+    grasp_actuator="gripper_actuator",
+    all_link_names=[
+        "mobile_base_link",
+        "kinova_base_link",
+        "shoulder_link",
+        "half_arm_1_link",
+        "half_arm_2_link",
+        "forearm_link",
+        "spherical_wrist_1_link",
+        "spherical_wrist_2_link",
+        "bracelet_link",
+        "end_effector_link",
+        "tool_frame",
+        "robotiq_arg2f_base_link",
+        "left_outer_knuckle",
+        "left_outer_finger",
+        "left_inner_finger",
+        "left_inner_finger_pad",
+        "left_inner_knuckle",
+        "right_outer_knuckle",
+        "right_outer_finger",
+        "right_inner_finger",
+        "right_inner_finger_pad",
+        "right_inner_knuckle"
+        ],
+    arm_link_names=[
+        "shoulder_link",
+        "half_arm_1_link",
+        "half_arm_2_link",
+        "forearm_link",
+        "spherical_wrist_1_link",
+        "spherical_wrist_2_link",
+        "bracelet_link",
+        "end_effector_link",
+        ],
+    ee_link_names=["bracelet_link"],
+    base_joint="base_joint",
+    ee_site_name="ee",
+    weld_body_name="kinovagen3",
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 HUMANOID_CONSTANTS=dict(
     name="humanoid",

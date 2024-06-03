@@ -158,6 +158,7 @@ UR5E_SUCTION_CONSTANTS=dict(
 PANDA_CONSTANTS=dict(
     name="panda",
     all_joint_names=[
+        "panda_base_joint",
         "joint1",
         "joint2",
         "joint3",
@@ -167,17 +168,16 @@ PANDA_CONSTANTS=dict(
         "joint7",
         "finger_joint1",
         "finger_joint2",
-        "panda_base_joint",
         ],
     ik_joint_names=[
+        "panda_base_joint",
         "joint1",
         "joint2",
         "joint3",
         "joint4",
         "joint5",
         "joint6",
-        "joint7", 
-        "panda_base_joint",
+        "joint7",  
     ],
     arm_joint_names=[
         "joint1",
@@ -203,6 +203,7 @@ PANDA_CONSTANTS=dict(
         "assets/link0.stl": ["link0_collision"],
         "assets/link1.stl": ["link1_collision"],
         "assets/link2.stl": ["link2_collision"],
+        
         "assets/link3.stl": ["link3_collision"],
         "assets/link4.stl": ["link4_collision"],
         "assets/link5_collision_0.obj": ["link5_collision_0"],

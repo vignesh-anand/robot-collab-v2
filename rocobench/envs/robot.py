@@ -18,9 +18,10 @@ class SimRobot:
         arm_joint_names: List[str],
         actuator_info: Dict[str, Any],
         all_link_names: List[str],
-        arm_link_names: List[str], # 
+        arm_link_names: List[str], 
         ee_link_names: List[str],
         base_joint: str,
+        mesh_to_geoms: Dict[str,Any],
         ee_site_name: str,
         grasp_actuator: str,
         weld_body_name: str = "rhand", # or gripper

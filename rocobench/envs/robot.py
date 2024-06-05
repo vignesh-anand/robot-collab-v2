@@ -23,6 +23,7 @@ class SimRobot:
         base_joint: str,
         ee_site_name: str,
         grasp_actuator: str,
+        mesh_to_geoms: Dict[str, Any],
         weld_body_name: str = "rhand", # or gripper
         ee_rest_quat: np.ndarray = np.array([0, 1, 0, 0]),
         use_ee_rest_quat: bool = False,

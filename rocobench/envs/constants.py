@@ -1,22 +1,23 @@
 UR5E_ROBOTIQ_CONSTANTS=dict(
     name="ur5e_robotiq",
     all_joint_names=[
+        "ur5e_0_base_joint", 
         "ur5e_0_shoulder_pan_joint",
         "ur5e_0_shoulder_lift_joint",
         "ur5e_0_elbow_joint",
         "ur5e_0_wrist_1_joint",
         "ur5e_0_wrist_2_joint",
         "ur5e_0_wrist_3_joint",
-        "ur5e_0_base_joint", 
+
         ],
     ik_joint_names=[
+        "ur5e_0_base_joint", 
         "ur5e_0_shoulder_pan_joint",
         "ur5e_0_shoulder_lift_joint",
         "ur5e_0_elbow_joint",
         "ur5e_0_wrist_1_joint",
         "ur5e_0_wrist_2_joint",
         "ur5e_0_wrist_3_joint",
-        "ur5e_0_base_joint", 
     ],
     arm_joint_names=[
         "ur5e_0_shoulder_pan_joint",
@@ -27,13 +28,14 @@ UR5E_ROBOTIQ_CONSTANTS=dict(
         "ur5e_0_wrist_3_joint",
         ],
     actuator_info={
+        "ur5e_0_base_joint": "ur5e_0_base",
         "ur5e_0_shoulder_pan_joint": "ur5e_0_shoulder_pan",
         "ur5e_0_shoulder_lift_joint": "ur5e_0_shoulder_lift",
         "ur5e_0_elbow_joint": "ur5e_0_elbow",
         "ur5e_0_wrist_1_joint": "ur5e_0_wrist_1",
         "ur5e_0_wrist_2_joint": "ur5e_0_wrist_2",
         "ur5e_0_wrist_3_joint": "ur5e_0_wrist_3",
-        "ur5e_0_base_joint": "ur5e_0_base",
+
         },
     all_link_names=[
         "ur5e_0_shoulder_link",
@@ -158,6 +160,7 @@ UR5E_SUCTION_CONSTANTS=dict(
 PANDA_CONSTANTS=dict(
     name="panda",
     all_joint_names=[
+        "panda_base_joint",
         "joint1",
         "joint2",
         "joint3",
@@ -167,9 +170,10 @@ PANDA_CONSTANTS=dict(
         "joint7",
         "finger_joint1",
         "finger_joint2",
-        "panda_base_joint",
+
         ],
     ik_joint_names=[
+        "panda_base_joint",
         "joint1",
         "joint2",
         "joint3",
@@ -177,7 +181,6 @@ PANDA_CONSTANTS=dict(
         "joint5",
         "joint6",
         "joint7", 
-        "panda_base_joint",
     ],
     arm_joint_names=[
         "joint1",

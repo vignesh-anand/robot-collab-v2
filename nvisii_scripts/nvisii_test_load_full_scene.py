@@ -44,7 +44,7 @@ if rocobench_path not in sys.path:
     sys.path.append(rocobench_path)
 
 sys.path.append('/home/adityadutt/Desktop/robot-collab-v2/')
-# sys.path.append('/home/adityadutt/Desktop/robot-collab-v2/rocobench/envs')
+sys.path.append('/home/adityadutt/Desktop/robot-collab-v2/rocobench/envs')
 
 from rocobench.envs.robot import SimRobot
 from rocobench.envs.constants import UR5E_ROBOTIQ_CONSTANTS, PANDA_CONSTANTS, KINOVA_CONSTANTS
@@ -203,7 +203,7 @@ class DoorCabinet(BaseTask):
         # Construct the full path to the texture file
         # texture_file_path = os.path.join(script_dir, 'envs', 'assets', 'objects', 'textures', 'white-wood.png')
             
-        self.cabinet_path = self.project_root_dir + "/rocobench/envs/assets/cabinet/cabinet_mjcf.xml"
+        self.cabinet_path = self.project_root_dir + "rocobench/envs/cabinet_mjcf.xml"
         self.cabinet =  mjcf.from_file(self.cabinet_path)
         self.cabinet.model = "cabinet"
         self.model.attach(self.cabinet)
@@ -384,11 +384,12 @@ def main():
 
     # Get the absolute path of the parent directory (one level up from nvisii_scripts)
     parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    print(parent_dir)
 
     # Ensure parent_dir ends with a separator
     if not parent_dir.endswith(os.path.sep):
         parent_dir += os.path.sep
-
+    print(parent_dir)
     # Construct the full path to panda.xml
     panda_xml_path = os.path.join(parent_dir, 'rocobench', 'envs', 'assets', 'panda', 'panda.xml')
     ur5e_xml_path = os.path.join(parent_dir, 'rocobench', 'envs', 'assets', 'ur5e_robotiq', 'ur5e_robotiq_full.xml')
@@ -425,8 +426,8 @@ def main():
     r.close()
 
     ## Render the scene using Mujoco Physics Renderer for comparison
-    plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
-    plt.show()
+    # plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
+    # plt.show()
 
 
 if __name__=="__main__":

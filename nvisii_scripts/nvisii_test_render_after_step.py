@@ -13,6 +13,7 @@ from dm_control.mujoco.wrapper.mjbindings import mjlib
 # PyMJCF
 from dm_control import mjcf
 
+
 import numpy as np
 from copy import deepcopy
 from typing import Callable, List, Optional, Tuple, Union, Dict, Set, Any, FrozenSet
@@ -37,13 +38,13 @@ import os
 
 # Get the absolute path of the rocobench folder
 rocobench_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../', 'rocobench'))
-print(rocobench_path)
+
 # Add rocobench_path to sys.path
 if rocobench_path not in sys.path:
     sys.path.append(rocobench_path)
 
 sys.path.append('/home/adityadutt/Desktop/robot-collab-v2/')
-# sys.path.append('/home/adityadutt/Desktop/robot-collab-v2/rocobench/envs')
+sys.path.append('/home/adityadutt/Desktop/robot-collab-v2/rocobench/envs')
 
 from rocobench.envs.robot import SimRobot
 from rocobench.envs.constants import UR5E_ROBOTIQ_CONSTANTS, PANDA_CONSTANTS, KINOVA_CONSTANTS
@@ -202,7 +203,7 @@ class DoorCabinet(BaseTask):
         # Construct the full path to the texture file
         # texture_file_path = os.path.join(script_dir, 'envs', 'assets', 'objects', 'textures', 'white-wood.png')
             
-        self.cabinet_path = self.project_root_dir + "/rocobench/envs/assets/cabinet/cabinet_mjcf.xml"
+        self.cabinet_path = self.project_root_dir + "rocobench/envs/cabinet_mjcf.xml"
         self.cabinet =  mjcf.from_file(self.cabinet_path)
         self.cabinet.model = "cabinet"
         self.model.attach(self.cabinet)
@@ -367,23 +368,30 @@ class DoorCabinet(BaseTask):
         return None
     
     def nvisii_render(self, width=800, height=800, output_file = None):
+        # self.physics.step()
         r = nvisii_renderer.NVISIIRenderer(env=self, width=width, height=height)
         if output_file is None:
             r.render(render_type="png")
         else:
             r.render_to_file(output_file)
+
         r.close()
 
+
 def main():
+    ### Load Cabinet Model ###
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # print("Script dir:", script_dir)
 
     # Get the absolute path of the parent directory (one level up from nvisii_scripts)
     parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    print(parent_dir)
 
     # Ensure parent_dir ends with a separator
     if not parent_dir.endswith(os.path.sep):
         parent_dir += os.path.sep
-
-    # Construct the full path to panda.xml and ur5e_robotiq_full.xml
+    print(parent_dir)
+    # Construct the full path to panda.xml
     panda_xml_path = os.path.join(parent_dir, 'rocobench', 'envs', 'assets', 'panda', 'panda.xml')
     ur5e_xml_path = os.path.join(parent_dir, 'rocobench', 'envs', 'assets', 'ur5e_robotiq', 'ur5e_robotiq_full.xml')
 
@@ -403,28 +411,30 @@ def main():
                 }
             }
 
-    doorcabinet = DoorCabinet(model_name="doorcabinet", project_root_dir = parent_dir, robots=robots, create_weld=False)
+    doorcabinet = DoorCabinet(model_name="doorcabinet", project_root_dir = parent_dir + "/", robots=robots, create_weld=False)
 
-    ### Use NVISII Renderer
+    ### Use NVISII Renderer 
     doorcabinet.nvisii_render(width=800, height=800, output_file="images/test_physics_before_step.png")
 
-    plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
-    plt.show()
-
+    ## Render with MuJoCo
+    # plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
+    # plt.show()
 
     ## Take some action ##
     ## Move the panda: 8 DOFs, ur5e: 7 DOFs ##
     doorcabinet.physics.data.qpos[doorcabinet.joint_ids["panda"]["qpos"]] = 0.5*np.ones(8)
     doorcabinet.physics.step()
 
-    ## Render the scene using Mujoco Physics Renderer
-    plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
-    plt.show()
+    ## Render with MuJoCo
+    # plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
+    # plt.show()
 
-
-    # doorcabinet.nvisii_render(width=800, height=800, output_file="images/test_physics_after_step.png")
-
-
+    ## Render the scene again: Don't need to specify output file, will default
+    doorcabinet.nvisii_render(width=800, height=800, output_file="images/test_physics_after_step.png")
+    
+    ## Render the scene using Mujoco Physics Renderer for comparison
+    # plt.imshow(doorcabinet.render_image(cam_id=0, width = 1080, height=800))
+    # plt.show()
 
 
 if __name__=="__main__":

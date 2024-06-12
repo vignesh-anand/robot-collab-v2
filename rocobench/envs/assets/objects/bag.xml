@@ -1,0 +1,47 @@
+<mujoco model="Bag">
+  <option timestep="0.0002" solver="CG" iterations="30" tolerance="1e-6" />
+
+  <size memory="200M" />
+
+  <extension>
+    <plugin plugin="mujoco.elasticity.shell" />
+  </extension>
+
+  <visual>
+    <map force="0.1" zfar="30" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <quality shadowsize="2048" />
+    <global offwidth="2000" offheight="2000" />
+  </visual>
+
+  <asset>
+    <texture name="plane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2"
+      width="512" height="512" mark="cross" markrgb=".8 .8 .8" />
+    <texture name="hammock" type="2d" builtin="checker" rgb1=".1 .5 .1" rgb2=".5 .1 .1"
+      width="512" height="512" mark="edge" markrgb=".8 .8 .8" />
+    <material name="plane" reflectance="0.3" texture="plane" texrepeat="1 1" texuniform="true" />
+    <material name="hammock" texture="hammock" />
+  </asset>
+
+
+  <worldbody>
+    <geom name="floor" pos="0 0 -1" size="0 0 .25" type="plane" material="plane" condim="3" />
+
+    <!-- Shirt -->
+    <flexcomp name="bag_flex" type="mesh" radius="0.01" dim="2" pos="0 0 0" quat="-0.5 -0.5 0.5 0.5" 
+      file="rocobench/envs/assets/objects/meshes/bag0_0.obj">
+      <contact solref="0.003" selfcollide="none" />
+      <edge equality="true" damping="0.1" />
+      <plugin plugin="mujoco.elasticity.shell">
+        <config key="poisson" value="0" />
+        <config key="thickness" value="8e-3" />
+        <config key="young" value="3e5" />
+      </plugin>
+    </flexcomp>
+
+    <!-- Lights -->
+    <light directional="true" diffuse=".2 .2 .2" specular="0 0 0" pos="0 0 5" dir="0 0 -1"
+      castshadow="false" />
+    <light directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 0 4" dir="0 0 -1" />
+  </worldbody>
+</mujoco>

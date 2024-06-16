@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from copy import deepcopy
 from transforms3d import quaternions
 from dm_control.utils.inverse_kinematics import qpos_from_site_pose
@@ -6,6 +7,22 @@ from typing import Callable, List, Optional, Tuple, Union, Dict, Set, Any, Froze
 
 from rocobench.envs.env_utils import Pose
 from rocobench.envs.base_env import MujocoSimEnv
+from rocobench.envs.world_config import WorldConfig
+
+from curobo.types.base import TensorDeviceType
+from curobo.types.math import Pose
+from curobo.types.robot import RobotConfig
+from curobo.util_file import get_robot_configs_path, join_path, load_yaml
+from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
+
+from curobo.geom.types import WorldConfig
+from curobo.util_file import (
+    get_robot_configs_path,
+    get_world_configs_path,
+    join_path,
+    load_yaml,
+    )
+
 
 class SimRobot:
     """ Stores the info for a single arm, doesn't store or change physics state """
@@ -13,51 +30,53 @@ class SimRobot:
         self,
         physics: Any, # use only for gathering more arm infos
         name: str,
-        all_joint_names: List[str],
-        ik_joint_names: List[str],
-        arm_joint_names: List[str],
-        actuator_info: Dict[str, Any],
-        all_link_names: List[str],
-        arm_link_names: List[str], # 
-        ee_link_names: List[str],
-        base_joint: str,
-        ee_site_name: str,
-        grasp_actuator: str,
-        weld_body_name: str = "rhand", # or gripper
-        ee_rest_quat: np.ndarray = np.array([0, 1, 0, 0]),
-        use_ee_rest_quat: bool = False,
+        robot_constants: dict,
+        curobo_path: str,
+        urdf_path: str,
+        yaml_path: str,
+        mjcf_model, 
     ):
-        self.name=name
-        self.ik_joint_names = ik_joint_names
-        self.ee_site_name = ee_site_name
-        self.ee_link_names = ee_link_names
-        self.ee_rest_quat = ee_rest_quat
-        self.arm_link_names = arm_link_names
-        self.use_ee_rest_quat = use_ee_rest_quat
-        self.grasp_actuator = grasp_actuator
-        self.grasp_idx_in_ctrl = physics.named.data.ctrl._convert_key(grasp_actuator)
-
-        self.actuator_info = actuator_info
-        self.weld_body_name = weld_body_name
         
+        pass
+        self.name=name
+        self.constants=self.prepend_robot_name(name,robot_constants)
+        self.curobo_path=curobo_path
+        self.urdf_path=urdf_path
+        self.yaml_path=yaml_path
+        self.ik_joint_names = self.constants['ik_joint_names']
+        self.ee_site_name = self.constants['ee_site_name']
+        self.ee_link_names = self.constants['ee_link_names']
+        self.ee_rest_quat = self.constants['ee_rest_quat']
+        self.arm_link_names = self.constants['arm_link_names']
+        self.use_ee_rest_quat = self.constants['use_ee_rest_quat']
+        self.grasp_actuator = self.constants['grasp_actuator']
+        self.grasp_idx_in_ctrl = physics.named.data.ctrl._convert_key(self.grasp_actuator)
+
+        self.actuator_info = self.constants['actuator_info']
+        self.weld_body_name = self.constants['weld_body_name']
+        self.curobo_robot_config=RobotConfig.from_dict(
+        load_yaml(yaml_path)["robot_cfg"]
+        )
+        self.collision_world=WorldConfig(mjcf_model,physics,skip_robot_name=name)
         self.joint_ranges = []
         self.joint_idxs_in_qpos = [] 
-        self.joint_idxs_in_ctrl = [] 
-        for _name in ik_joint_names:
+        self.joint_idxs_in_ctrl = []
+        self.mjcf_model=mjcf_model
+        for _name in self.ik_joint_names:
             qpos_slice = physics.named.data.qpos._convert_key(_name)
             assert int(qpos_slice.stop - qpos_slice.start) == 1, "Only support single joint for now"
             idx_in_qpos = qpos_slice.start
             self.joint_idxs_in_qpos.append(idx_in_qpos)
             self.joint_ranges.append(physics.model.joint(_name).range)
 
-            assert _name in actuator_info, f"Joint {_name} not in actuator_info"
-            actuator_name = actuator_info[_name]
+            assert _name in self.actuator_info, f"Joint {_name} not in actuator_info"
+            actuator_name = self.actuator_info[_name]
             idx_in_ctrl = physics.named.data.ctrl._convert_key(actuator_name)
             self.joint_idxs_in_ctrl.append(idx_in_ctrl)
         
         
         self.ee_link_body_ids = []
-        for _name in ee_link_names:
+        for _name in self.ee_link_names:
             try:
                 link = physics.model.body(_name)
             except Exception as e:
@@ -66,7 +85,7 @@ class SimRobot:
             self.ee_link_body_ids.append(link.id)
         
         self.all_link_body_ids = []
-        for _name in all_link_names:
+        for _name in self.all_link_names:
             try:
                 link = physics.model.body(_name)
             except Exception as e:
@@ -86,7 +105,25 @@ class SimRobot:
             physics.model.body(_name).id for _name in self.collision_link_names
         ]
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
-    
+    def prepend_robot_name(self,name:str,constants: dict):
+        result = dict()
+        result["name"] = self.name
+        for key, value in self.constants.items():
+            #print(key)
+            if key=='name':
+                continue
+
+            if key == "actuator_info":
+                result[key] = {self.name + "/" + x: self.name + "/" + y for x, y in value.items()}
+            elif key == "mesh_to_geoms":
+                result[key] = {x: [self.name + "/" + y for y in z] for x, z in value.items()}
+
+            elif isinstance(self.constants[key],str):
+                result[key]= self.name+'/'+value
+            else:
+                result[key] = [self.name + "/" + x for x in value]
+
+        return result
     def set_home_qpos(self, env: MujocoSimEnv):
         env_cp = deepcopy(env)
         env_cp.reset()
@@ -142,53 +179,40 @@ class SimRobot:
         physics, 
         target_pos, 
         target_quat = None,
-        tol=1e-14,
-        max_resets=20,
-        max_steps=300,
-        allow_err=1e-2,
+        number_seeds=20,
+        position_threshhold=1e-3,
+        roation_threshhold=5e-2,
+        check_self_collision=True,
+        check_world_collision=False,
+        collision_world=None,
+        use_primitive_collisions=True
         ):
         """ solves single arm IK, helpful to check if a pose is achievable """
-        
-        physics_cp = physics.copy(share_model=True)
-        joint_names = self.ik_joint_names
-        qpos_idxs = self.joint_idxs_in_qpos
+        ## Update world config
         target_quat = np.array([1, 0, 0, 0]) if target_quat is None else target_quat 
-
-        def reset_fn(physics):
-            model = physics.named.model 
-            _lower, _upper = model.jnt_range[joint_names].T 
-            curr_qpos = physics.named.data.qpos[joint_names]
-            # deltas = (_upper - _lower) / 2
-            # new_qpos = self.np_random.uniform(low=_lower, high=_upper)
-            new_qpos = np.random.uniform(low=curr_qpos-0.5, high=curr_qpos + 0.5)
-            new_qpos = np.clip(new_qpos, _lower, _upper)
-            physics.named.data.qpos[joint_names] = new_qpos
-            physics.forward()
-
-        for i in range(max_resets):
-            # print(f"Resetting IK {i}")
-            if i > 0:
-                reset_fn(physics_cp)
-            result = qpos_from_site_pose(
-                physics=physics_cp,
-                site_name=self.ee_site_name,
-                target_pos=target_pos,
-                target_quat=target_quat,
-                joint_names=joint_names,
-                tol=tol,
-                max_steps=max_steps,
-                inplace=True,
-            )
-            if result.success:
-                # check joint range
-                _lower, _upper = physics_cp.named.model.jnt_range[joint_names].T
-                qpos = result.qpos[qpos_idxs]
-                in_range = True 
-                assert len(qpos) == len(_lower) == len(_upper), f"Shape mismatch: qpos: {qpos}, _lower: {_lower}, _upper: {_upper}"
-                for i, name in enumerate(joint_names):
-                    if qpos[i] < _lower[i] - allow_err or qpos[i] > _upper[i] + allow_err:
-                        # print(f"Joint {name} out of range: {_lower[i]} < {qpos[i]} < {_upper[i]}")
-                        in_range = False 
-                if in_range:
-                    break 
-        return result if result.success else None 
+        tensor_args = TensorDeviceType()
+        if collision_world is None and check_world_collision:
+            collision_world.update_curobo_world(physics)
+            if use_primitive_collisions:
+                collision_world=self.collision_world.get_as_obb()
+            else:
+                collision_world=self.collision_world.get_as_class()
+        elif not check_world_collision:
+            collision_world=None
+        ik_config = IKSolverConfig.load_from_robot_config(
+            self.curobo_robot_config,
+            collision_world,
+            rotation_threshold=roation_threshhold,
+            position_threshold=position_threshhold,
+            num_seeds=number_seeds,
+            self_collision_check=check_self_collision,
+            self_collision_opt=check_self_collision,
+            tensor_args=tensor_args,
+            use_cuda_graph=True,
+        )
+        ik_solver = IKSolver(ik_config)
+        goal_pose=Pose(position=target_pos,quaternion=target_quat[[3,0,1,2]])
+        ik_result=ik_solver.solve_single(goal_pose=goal_pose)
+        ik_result.get_unique_solution()
+        return ik_result if ik_result.succes else None 
+    

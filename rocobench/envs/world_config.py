@@ -4,6 +4,7 @@ from typing import Callable, List, Optional, Tuple, Union, Dict, Set, Any, Froze
 import os
 from copy import deepcopy
 from curobo.geom.types import WorldConfig as curobo_WorldConfig
+from curobo.util_file import get_assets_path
 
 class WorldConfig():
 
@@ -26,13 +27,16 @@ class WorldConfig():
 
         self.generate_world_config(mesh_test=mesh_test, skip_robot_name=skip_robot_name)
         
-        self.update_curobo_world(physics=physics, robot_name=skip_robot_name + "/")
+        self.update_curobo_world(physics=physics, robot_name=skip_robot_name)
     
     def store_assets_in_dir(self, out_dir = None):
         from dm_control.mujoco.wrapper import util
+    
 
         if out_dir is None or out_dir == "":
             out_dir = self.physics.model.name + '_scene/'
+            
+        out_dir=os.path.join(get_assets_path(),out_dir)
         
         self.mesh_dir = out_dir
 
@@ -184,6 +188,7 @@ class WorldConfig():
 
         if robot_name is None:
             robot_name = self.robot_name
+        robot_name=robot_name+ "/"
 
         robot_pos = np.concatenate((physics.named.data.xpos[robot_name],
                                     physics.named.data.xquat[robot_name]), axis=0)

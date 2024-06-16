@@ -15,7 +15,7 @@ from curobo.types.robot import RobotConfig
 from curobo.util_file import get_robot_configs_path, join_path, load_yaml
 from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
 
-from curobo.geom.types import WorldConfig
+from curobo.geom.types import WorldConfig as c_world_config
 from curobo.util_file import (
     get_robot_configs_path,
     get_world_configs_path,
@@ -30,42 +30,26 @@ class SimRobot:
         self,
         physics: Any, # use only for gathering more arm infos
         name: str,
-<<<<<<< HEAD
         robot_constants: dict,
-        curobo_path: str,
         urdf_path: str,
         yaml_path: str,
         mjcf_model, 
-=======
-        all_joint_names: List[str],
-        ik_joint_names: List[str],
-        arm_joint_names: List[str],
-        actuator_info: Dict[str, Any],
-        all_link_names: List[str],
-        arm_link_names: List[str], # 
-        ee_link_names: List[str],
-        base_joint: str,
-        ee_site_name: str,
-        grasp_actuator: str,
-        mesh_to_geoms: Dict[str, Any],
-        weld_body_name: str = "rhand", # or gripper
         ee_rest_quat: np.ndarray = np.array([0, 1, 0, 0]),
         use_ee_rest_quat: bool = False,
->>>>>>> aditya
     ):
         
         pass
         self.name=name
         self.constants=self.prepend_robot_name(name,robot_constants)
-        self.curobo_path=curobo_path
+        #self.curobo_path=curobo_path
         self.urdf_path=urdf_path
         self.yaml_path=yaml_path
         self.ik_joint_names = self.constants['ik_joint_names']
         self.ee_site_name = self.constants['ee_site_name']
         self.ee_link_names = self.constants['ee_link_names']
-        self.ee_rest_quat = self.constants['ee_rest_quat']
+        self.ee_rest_quat = ee_rest_quat
         self.arm_link_names = self.constants['arm_link_names']
-        self.use_ee_rest_quat = self.constants['use_ee_rest_quat']
+        self.use_ee_rest_quat = use_ee_rest_quat
         self.grasp_actuator = self.constants['grasp_actuator']
         self.grasp_idx_in_ctrl = physics.named.data.ctrl._convert_key(self.grasp_actuator)
 
@@ -102,7 +86,7 @@ class SimRobot:
             self.ee_link_body_ids.append(link.id)
         
         self.all_link_body_ids = []
-        for _name in self.all_link_names:
+        for _name in self.constants['all_link_names']:
             try:
                 link = physics.model.body(_name)
             except Exception as e:
@@ -124,8 +108,8 @@ class SimRobot:
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
     def prepend_robot_name(self,name:str,constants: dict):
         result = dict()
-        result["name"] = self.name
-        for key, value in self.constants.items():
+        result["name"] = name
+        for key, value in constants.items():
             #print(key)
             if key=='name':
                 continue
@@ -135,7 +119,7 @@ class SimRobot:
             elif key == "mesh_to_geoms":
                 result[key] = {x: [self.name + "/" + y for y in z] for x, z in value.items()}
 
-            elif isinstance(self.constants[key],str):
+            elif isinstance(constants[key],str):
                 result[key]= self.name+'/'+value
             else:
                 result[key] = [self.name + "/" + x for x in value]
@@ -206,10 +190,16 @@ class SimRobot:
         ):
         """ solves single arm IK, helpful to check if a pose is achievable """
         ## Update world config
-        target_quat = np.array([1, 0, 0, 0]) if target_quat is None else target_quat 
+        target_quat = np.array([0,1,0,0]) if target_quat is None else target_quat 
+        robot_pos=np.concatenate((physics.named.data.xpos[self.collision_world.robot_name+"/"],
+                                    physics.named.data.xquat[self.collision_world.robot_name+"/"]), axis=0)
+        target_pos_list=np.concatenate((target_pos,
+                                    target_quat), axis=0)
+        new_target_pose=self.collision_world.transform_pose_robot(target_pos_list,robot_pose=robot_pos)
+        #print(new_target_pose)
         tensor_args = TensorDeviceType()
         if collision_world is None and check_world_collision:
-            collision_world.update_curobo_world(physics)
+            self.collision_world.update_curobo_world(physics)
             if use_primitive_collisions:
                 collision_world=self.collision_world.get_as_obb()
             else:
@@ -228,8 +218,10 @@ class SimRobot:
             use_cuda_graph=True,
         )
         ik_solver = IKSolver(ik_config)
-        goal_pose=Pose(position=target_pos,quaternion=target_quat[[3,0,1,2]])
+        
+        goal_pose=Pose.from_list(new_target_pose)
+        #print(goal_pose.quaternion)
         ik_result=ik_solver.solve_single(goal_pose=goal_pose)
         ik_result.get_unique_solution()
-        return ik_result if ik_result.succes else None 
+        return ik_result.solution.detach().cpu().squeeze().numpy() if ik_result.success else None 
     

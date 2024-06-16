@@ -1,7 +1,5 @@
 NVISII Implementation
 
-
-
 Running test scripts:
 1. Activate the roco conda environment 
 2. cd nvisii_scripts/

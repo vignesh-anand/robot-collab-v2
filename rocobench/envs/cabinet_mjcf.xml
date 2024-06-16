@@ -11,8 +11,8 @@
     </default>
     <asset>
         <!-- cabinet -->
-        <!-- <texture file="/home/adityadutt/Desktop/robot-collab-v2/rocobench/envs/assets/objects/textures/white-wood.png" type="2d" name="tex-white-wood"/> -->
-        <texture file="../rocobench/envs/assets/objects/textures/white-wood.png" type="2d" name="tex-white-wood"/>
+        <texture file="/home/adityadutt/Desktop/robot-collab-v2/rocobench/envs/assets/objects/textures/white-wood.png" type="2d" name="tex-white-wood"/>
+        <!-- <texture file="../rocobench/envs/assets/objects/textures/white-wood.png" type="2d" name="tex-white-wood"/> -->
         <material name="white-wood" reflectance="0.6" texrepeat="15 15" texture="tex-white-wood" texuniform="true"/>
         <material name="quiet-black" rgba=".15 .15 .15 1" reflectance=".2" shininess=".2" />
     </asset>

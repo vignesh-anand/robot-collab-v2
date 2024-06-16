@@ -30,11 +30,28 @@ class SimRobot:
         self,
         physics: Any, # use only for gathering more arm infos
         name: str,
+<<<<<<< HEAD
         robot_constants: dict,
         curobo_path: str,
         urdf_path: str,
         yaml_path: str,
         mjcf_model, 
+=======
+        all_joint_names: List[str],
+        ik_joint_names: List[str],
+        arm_joint_names: List[str],
+        actuator_info: Dict[str, Any],
+        all_link_names: List[str],
+        arm_link_names: List[str], # 
+        ee_link_names: List[str],
+        base_joint: str,
+        ee_site_name: str,
+        grasp_actuator: str,
+        mesh_to_geoms: Dict[str, Any],
+        weld_body_name: str = "rhand", # or gripper
+        ee_rest_quat: np.ndarray = np.array([0, 1, 0, 0]),
+        use_ee_rest_quat: bool = False,
+>>>>>>> aditya
     ):
         
         pass

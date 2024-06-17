@@ -109,6 +109,8 @@ class SimRobot:
             physics.model.body(_name).id for _name in self.collision_link_names
         ]
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
+        self.initalize_ik()
+        self.initialize_motion_planner()
     def prepend_robot_name(self,name:str,constants: dict):
         result = dict()
         result["name"] = name

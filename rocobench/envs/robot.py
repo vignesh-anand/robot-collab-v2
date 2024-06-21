@@ -23,6 +23,7 @@ from curobo.util_file import (
     get_world_configs_path,
     join_path,
     load_yaml,
+    get_robot_path
     )
 
 
@@ -226,8 +227,8 @@ class SimRobot:
         """ solves single arm IK, helpful to check if a pose is achievable """
         ## Update world config
         target_quat = np.array([0,1,0,0]) if target_quat is None else target_quat 
-        robot_pos=np.concatenate((physics.named.data.xpos[self.collision_world.robot_name+"/"],
-                                    physics.named.data.xquat[self.collision_world.robot_name+"/"]), axis=0)
+        robot_pos=np.concatenate((physics.named.data.xpos[self.name+"/"],
+                                    physics.named.data.xquat[self.name+"/"]), axis=0)
         target_pos_list=np.concatenate((target_pos,
                                     target_quat), axis=0)
         new_target_pose=self.collision_world.transform_pose_robot(target_pos_list,robot_pose=robot_pos)

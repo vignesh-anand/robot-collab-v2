@@ -12,13 +12,28 @@ from dm_control.utils.transformations import mat_to_quat, quat_to_euler, euler_t
 from rocobench.rrt import direct_path, smooth_path, birrt, NearJointsUniformSampler, CenterWaypointsUniformSampler
 from rocobench.envs import SimRobot 
 from rocobench.envs.env_utils import Pose
-
+from curobo.util_file import (
+    get_robot_configs_path,
+    get_assets_path,
+    get_world_configs_path,
+    join_path,
+    load_yaml,
+    )
+from curobo.types.robot import RobotConfig
+import urdfpy
+import yaml
+from urdfpy import URDF,Link,Joint
+import os
+import copy
+from scipy.spatial.transform import Rotation
+from rocobench.envs.world_config import WorldConfig
 
 class MultiArmCurobo:
     """ Stores the info for a group of arms and plan all the combined joints together """
     def __init__(
         self,
         physics,
+        mjcf_model=None,
         robots: Dict[str, SimRobot] = {},
         seed: int = 0,
     ):
@@ -31,8 +46,15 @@ class MultiArmCurobo:
         self.all_joint_idxs_in_qpos = []
         self.all_collision_link_names = []
         self.inhand_object_info = dict()
-
+        urdf_list=[]
+        config_list=[]
+        pose_list=[]
         for name, robot in self.robots.items():
+            with open('/home/vignesh/curobo/src/curobo/content/configs/robot/ur5e.yml', 'r') as f:
+                config_list.append(yaml.load(f, Loader=yaml.SafeLoader))
+            urdf_list.append(URDF.load(robot.urdf_path))
+            pose_list.append(np.concatenate((physics.named.data.xpos[self.name+"/"],
+                                    physics.named.data.xquat[self.name+"/"]), axis=0).tolist())
             self.all_joint_names.extend(
                 robot.ik_joint_names
             ) 
@@ -47,85 +69,113 @@ class MultiArmCurobo:
             )
         
         #self.set_inhand_info(physics, inhand_object_info)
-
-
+        combined_urdf=self.add_robots_urdf(urdf_list=urdf_list,pose_list=pose_list,name='_'.join(list(self.robots.keys())))
+        combined_urdf.save(os.path.join(get_assets_path(),'robot/','_'.join(list(self.robots.keys()))))
+        combined_yaml_dict=self.combine_yaml_kinematics(config_list=config_list, combined_urdf_path=os.path.join("robot",'_'.join(list(self.robots.keys()))))
+        self.robot_config=RobotConfig.from_dict(combined_yaml_dict)
+        if mjcf_model is not None:
+            self.collision_world=WorldConfig(mjcf_model,physics,skip_robot_name=list(self.robots.keys()))
         self.joint_minmax = np.array([jrange for jrange in self.all_joint_ranges])
         self.joint_ranges = self.joint_minmax[:, 1] - self.joint_minmax[:, 0]
 
         # assign a list of allowed grasp ids to each robot
-
-    
-    def set_inhand_info(self, physics, inhand_object_info: Optional[Dict[str, Tuple]] = None):
-        """ Set the inhand object info """
-        self.inhand_object_info = dict()
-        if inhand_object_info is not None:
-            for name, robot in self.robots.items():
-                self.inhand_object_info[name] = None
-                
-                obj_info = inhand_object_info.get(name, None)
-                
-                if obj_info is not None:
-                    if 'rope' in obj_info[0] or 'CB' in obj_info[0]:
-                        continue
-                    assert len(obj_info) == 3, f"inhand obj info: {obj_info} should be a tuple of (obj_body_name, obj_site_name, obj_joint_name)"
-                    body_name, site_name, joint_name = obj_info
-                    try:
-                        mjsite = physics.data.site(site_name)
-                        qpos_slice = physics.named.data.qpos._convert_key(joint_name) 
-                    except: 
-                        print(f"Error: site_name: {site_name} joint_name {joint_name} not found in mujoco model")
-                        breakpoint() 
-                    self.inhand_object_info[name] = (body_name, site_name, joint_name, (qpos_slice.start, qpos_slice.stop))
-        return 
- 
-    
-    def set_ungraspable(
-        self, 
-        graspable_object_dict: Optional[Dict[str, List[str]]]
-    ):
-        """ Find all sim objects that are not graspable """
         
-        all_bodies = []
-        for i in range(self.physics.model.nbody):
-            all_bodies.append(self.physics.model.body(i))
-
-        # all robot link bodies are ungraspable:
-        ungraspable_ids = [0]  # world
-        for name, robot in self.robots.items():
-            ungraspable_ids.extend(
-                robot.collision_link_ids
-            )
-        # append all children of ungraspable body
-        ungraspable_ids += [
-            body.id for body in all_bodies if body.rootid[0] in ungraspable_ids
-        ]
- 
-        if graspable_object_dict is None or len(graspable_object_dict) == 0:
-            graspable = set(
-                [body.id for body in all_bodies if body.id not in ungraspable_ids]
-            )
-            ungraspable = set(ungraspable_ids)
-            self.graspable_body_ids = {name: graspable for name in self.robots.keys()}
-            self.ungraspable_body_ids = {name: ungraspable for name in self.robots.keys()}
-        else: 
-            # in addition to robots, everything else would be ungraspable if not in this list of graspable objects
-            self.graspable_body_ids = {}
-            self.ungraspable_body_ids = {}
-            for robot_name, graspable_object_names in graspable_object_dict.items():
-                graspable_ids = [
-                    body.id for body in all_bodies if body.name in graspable_object_names
-                ]
-                graspable_ids += [
-                    body.id for body in all_bodies if body.rootid[0] in graspable_ids
-                ]
-                self.graspable_body_ids[robot_name] = set(graspable_ids)
-                robot_ungraspable = ungraspable_ids.copy()
-                robot_ungraspable += [
-                    body.id for body in all_bodies if body.rootid[0] not in graspable_ids
-                ]
-                self.ungraspable_body_ids[robot_name] = set(ungraspable_ids)
-            # breakpoint()
-
+        
+    def pose_list_to_pose_matrix(self,pose):
+        pose_matrix=np.eye(4)
+        rot=Rotation.from_quat(np.array(pose)[[4,5,6,3]])
+        
+        pose_matrix[0:3,3]=pose[0:3]
+        pose_matrix[0:3,0:3]=rot.as_matrix()
+        return pose_matrix
+    def clean_robot(self,urdf_object,append_string="_1"):
+        for link in urdf_object.links:
+            link.name=link.name+append_string
+        for joint in urdf_object.joints:
+            joint.name=joint.name+append_string
+            joint.parent=joint.parent+append_string
+            joint.child=joint.child+append_string
+        return urdf_object
+    def add_robots_urdf(self,urdf_list,pose_list,name):
+        assert len(urdf_list)==len(pose_list),'inputs should be of same length'
+        base_link=Link('base_fixture_link',None,visuals=[urdfpy.Visual(urdfpy.Geometry(sphere=urdfpy.Sphere(0.1)))],collisions=None)
+        new_links=[base_link]
+        new_joints=[]
+        for i in range(len(urdf_list)):
+            robot_pose=pose_list[i]
+            urdf_list[i]=self.clean_robot(urdf_list[i],"_"+str(i+1))
+            new_links+=urdf_list[i].links
+            new_joints+=[Joint(name=base_link.name+"_j_"+urdf_list[i].base_link.name,joint_type='fixed',parent=base_link.name,child=urdf_list[i].base_link.name,origin=list(self.pose_list_to_pose_matrix(robot_pose)))]
+            new_joints+=urdf_list[i].joints
+        #for links in new_links:
+            #print(link.name)
+        #kinematics={}
+        return URDF(name,links=new_links,joints=new_joints)
+    def combine_yaml_kinematics(self,config_list,combined_urdf_path):
+        kinematic_list=[]
+        for config in config_list:
+            kinematic_list.append(config['robot_cfg']['kinematics'])
+        new_kinematics={'urdf_path':combined_urdf_path,'asset_root_path':'/robot','base_link':'base_fixture_link'}
+        #new_lock_joints={}
+        collison_sphere={} #
+        ee_link=kinematic_list[0]['ee_link']+"_1"
+        links_names=[]#
+        lock_joints={}#
+        extra_links={}#
+        collison_sphere_buffer=0#
+        extra_collison_spheres={}#
+        self_collison_ignore={}#
+        self_collison_buffer={}#
+        mesh_link_names=[]#
+        collision_link_names=[]#
+        use_global_cumul=False#
+        cspace={'joint_names':[],'retract_config':[],'null_space_weight':[],'cspace_distance_weight':[],'max_jerk':float('inf'),'max_acceleration':float('inf')}
+        for i in range(len(kinematic_list)):
+            if isinstance(kinematic_list[i]['collision_spheres'],str):
+                with open(os.path.join(get_robot_configs_path(),'spheres'), 'r') as f:
+                    spheres_i = yaml.load(f, Loader=yaml.SafeLoader)['collision_spheres']
+                    
+            else:
+                spheres_i=kinematic_list[i]['collision_spheres']
+            spheres_i={key+"_"+str(i+1):value for key,value in spheres_i.items()}
+            collison_sphere.update(spheres_i)
+            links_names.append(kinematic_list[i]['ee_link']+'_'+str(i+1))
+            if kinematic_list[i]['lock_joints'] is not None:
+                lock_joints.update({key+"_"+str(i+1):value for key,value in kinematic_list[i]['collision_spheres'].items()})
+            if kinematic_list[i]['extra_links'] is not None:
+                for k,v in kinematic_list[i]['extra_links'].items():
+                    v['parent_link_name']+="_"+str(i+1)
+                    v['link_name']+="_"+str(i+1)
+                    v['joint_name']+="_"+str(i+1)
+                    extra_links[k+"_"+str(i+1)]=v
+            collison_sphere_buffer=max(collison_sphere_buffer,kinematic_list[i]['collision_sphere_buffer'])
+            if kinematic_list[i]['extra_collision_spheres'] is not None:
+                extra_collison_spheres.update({key+"_"+str(i+1):value for key,value in kinematic_list[i]['extra_collision_spheres'].items()})
+            self_collison_ignore.update({key+"_"+str(i+1):[vi+"_"+str(i+1) for vi in value] for key,value in kinematic_list[i]['self_collision_ignore'].items()})
+            self_collison_buffer.update({key+"_"+str(i+1):value for key,value in kinematic_list[i]['self_collision_buffer'].items()})
+            mesh_link_names+=[name+"_"+str(i+1) for name in kinematic_list[i]['mesh_link_names']]
+            collision_link_names+=[name+"_"+str(i+1) for name in kinematic_list[i]['collision_link_names']]
+            use_global_cumul=(use_global_cumul or kinematic_list[i]['use_global_cumul'])
+            cspace['joint_names']+=[name+"_"+str(i+1) for name in kinematic_list[i]['cspace']['joint_names']]
+            cspace['retract_config']+=kinematic_list[i]['cspace']['retract_config']
+            cspace['null_space_weight']+=kinematic_list[i]['cspace']['null_space_weight']
+            cspace['cspace_distance_weight']+=  kinematic_list[i]['cspace']['cspace_distance_weight']
+            cspace['max_jerk']=min(cspace['max_jerk'],kinematic_list[i]['cspace']['max_jerk'])
+            cspace['max_acceleration']=min(cspace['max_acceleration'],kinematic_list[i]['cspace']['max_acceleration'])
+        new_kinematics['collision_spheres']=collison_sphere
+        new_kinematics['ee_link']=ee_link
+        new_kinematics['link_names']=links_names
+        new_kinematics['lock_joints']=lock_joints
+        new_kinematics['extra_links']=extra_links
+        new_kinematics['collision_sphere_buffer']=collison_sphere_buffer
+        new_kinematics['extra_collision_spheres']=extra_collison_spheres
+        new_kinematics['self_collision_ignore']=self_collison_ignore
+        new_kinematics['self_collision_buffer']=self_collison_buffer
+        new_kinematics['mesh_link_names']=mesh_link_names
+        new_kinematics['collision_link_names']=collision_link_names
+        new_kinematics['use_global_cumul']=use_global_cumul
+        new_kinematics['cspace']=cspace
+        return {'robot_cfg':{'kinematics':new_kinematics}}
     def forward_kinematics_all(
         self,
         q: np.ndarray,

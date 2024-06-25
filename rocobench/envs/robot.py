@@ -109,8 +109,8 @@ class SimRobot:
             physics.model.body(_name).id for _name in self.collision_link_names
         ]
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
-        self.initalize_ik(physics=physics)
-        self.initialize_motion_planner(physics=physics)
+        #self.initalize_ik(physics=physics)
+        #self.initialize_motion_planner(physics=physics)
     def prepend_robot_name(self,name:str,constants: dict):
         result = dict()
         result["name"] = name
@@ -179,6 +179,18 @@ class SimRobot:
         else:
             raise NotImplementedError(f"Grasp actuator {self.grasp_actuator} not implemented")
         return grasp_ctrl_val
+    def return_world_config_checker(self,physics,collision_world=None):
+        collision_checker=CollisionCheckerType.PRIMITIVE if self.use_primitive_collisions else CollisionCheckerType.MESH
+        if collision_world is None and self.check_world_collision:
+            self.collision_world.update_curobo_world(physics)
+            if self.use_primitive_collisions:
+                collision_world=self.collision_world.get_as_obb()
+            else:
+                collision_world=self.collision_world.get_as_class()
+        elif not self.check_world_collision:
+                collision_checker=CollisionCheckerType.MESH
+                collision_world = c_world_config()
+        return collision_world,collision_checker
     def initalize_ik(self, 
         physics, 
         number_seeds=20,
@@ -191,20 +203,13 @@ class SimRobot:
         ):
         
         #print(new_target_pose)
+        self.check_self_collision=check_self_collision
+        self.check_world_collision=check_world_collision
+        self.use_primitive_collion=use_primitive_collisions
         tensor_args = TensorDeviceType()
-        if collision_world is None and check_world_collision:
-            self.collision_world.update_curobo_world(physics)
-            if use_primitive_collisions:
-                collision_world=self.collision_world.get_as_obb()
-            else:
-                collision_world=self.collision_world.get_as_class()
-        elif not check_world_collision:
-            if use_primitive_collisions:
-                collision_world = c_world_config.create_obb_world(c_world_config())
-            else:
-                collision_world = c_world_config()
+        
             
-        collision_checker=CollisionCheckerType.PRIMITIVE if use_primitive_collisions else CollisionCheckerType.MESH
+        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
         ik_config = IKSolverConfig.load_from_robot_config(
             self.curobo_robot_config,
             collision_world,
@@ -223,9 +228,6 @@ class SimRobot:
         physics, 
         target_pos, 
         target_quat = None,
-        check_world_collision=False,
-        collision_world=None,
-        use_primitive_collisions=True
         ):
         """ solves single arm IK, helpful to check if a pose is achievable """
         ## Update world config
@@ -235,17 +237,7 @@ class SimRobot:
         target_pos_list=np.concatenate((target_pos,
                                     target_quat), axis=0)
         new_target_pose=self.collision_world.transform_pose_robot(target_pos_list,robot_pose=robot_pos)
-        if collision_world is None and check_world_collision:
-            self.collision_world.update_curobo_world(physics)
-            if use_primitive_collisions:
-                collision_world=self.collision_world.get_as_obb()
-            else:
-                collision_world=self.collision_world.get_as_class()
-        elif not check_world_collision:
-            if use_primitive_collisions:
-                collision_world = c_world_config.create_obb_world(c_world_config())
-            else:
-                collision_world = c_world_config()
+        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
         self.ik_solver.update_world(collision_world)
         goal_pose=Pose.from_list(new_target_pose)
         #print(goal_pose.quaternion)
@@ -264,20 +256,12 @@ class SimRobot:
         collision_world=None,
         use_primitive_collisions=True
         ):
+        #self.check_self_collision=check_self_collision
+        self.check_world_collision=check_world_collision
+        self.use_primitive_collion=use_primitive_collisions
         tensor_args = TensorDeviceType()
-        if collision_world is None and check_world_collision:
-            self.collision_world.update_curobo_world(physics)
-            if use_primitive_collisions:
-                collision_world=self.collision_world.get_as_obb()
-            else:
-                collision_world=self.collision_world.get_as_class()
-        elif not check_world_collision:
-            #collision_world=c_world_config()
-            if use_primitive_collisions:
-                collision_world = c_world_config.create_obb_world(c_world_config())
-            else:
-                collision_world = c_world_config()
-        collision_checker=CollisionCheckerType.PRIMITIVE if use_primitive_collisions else CollisionCheckerType.MESH
+        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        
         
         motion_gen_config=MotionGenConfig.load_from_robot_config(
         self.curobo_robot_config,
@@ -297,23 +281,10 @@ class SimRobot:
         target_pos, 
         target_quat = None,
         start_state=None,
-        check_world_collision=False,
-        collision_world=None,
-        use_primitive_collisions=True,
         max_attempts=5,
         time_dilation=0.5
         ):
-        if collision_world is None and check_world_collision:
-            self.collision_world.update_curobo_world(physics)
-            if use_primitive_collisions:
-                collision_world=self.collision_world.get_as_obb()
-            else:
-                collision_world=self.collision_world.get_as_class()
-        elif not check_world_collision:
-            if use_primitive_collisions:
-                collision_world = c_world_config.create_obb_world(c_world_config())
-            else:
-                collision_world = c_world_config()
+        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
         self.motion_generator.update_world(collision_world)
         target_quat = np.array([0,1,0,0]) if target_quat is None else target_quat 
         robot_pos=np.concatenate((physics.named.data.xpos[self.collision_world.robot_name+"/"],

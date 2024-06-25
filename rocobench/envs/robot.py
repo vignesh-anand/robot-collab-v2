@@ -200,7 +200,10 @@ class SimRobot:
             else:
                 collision_world=self.collision_world.get_as_class()
         elif not check_world_collision:
-            
+            if use_primitive_collisions:
+                collision_world=collision_world=c_world_config().get_as_obb()
+            else:
+                collision_world=collision_world=c_world_config()
             
         collision_checker=CollisionCheckerType.PRIMITIVE if use_primitive_collisions else CollisionCheckerType.MESH
         ik_config = IKSolverConfig.load_from_robot_config(

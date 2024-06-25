@@ -20,7 +20,7 @@ class WorldConfig():
         
         self.mjcf_model = mjcf_model
         self.physics = physics.copy(share_model=True)
-        self.robot_name = skip_robot_name
+        self.robot_name = skip_robot_name if isinstance(skip_robot_name,str) else "world"
 
         ### Generate World Config and Update the world###
         self.store_assets_in_dir(out_dir = mesh_dir)

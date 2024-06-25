@@ -179,18 +179,25 @@ class SimRobot:
         else:
             raise NotImplementedError(f"Grasp actuator {self.grasp_actuator} not implemented")
         return grasp_ctrl_val
-    def return_world_config_checker(self,physics,collision_world=None):
-        collision_checker=CollisionCheckerType.PRIMITIVE if self.use_primitive_collisions else CollisionCheckerType.MESH
+    
+    def return_world_config_checker(self, physics, collision_world = None):
+        
+        collision_checker = CollisionCheckerType.PRIMITIVE if self.use_primitive_collision else CollisionCheckerType.MESH
+
         if collision_world is None and self.check_world_collision:
             self.collision_world.update_curobo_world(physics)
-            if self.use_primitive_collisions:
+            if self.use_primitive_collision:
                 collision_world=self.collision_world.get_as_obb()
             else:
                 collision_world=self.collision_world.get_as_class()
         elif not self.check_world_collision:
-                collision_checker=CollisionCheckerType.MESH
-                collision_world = c_world_config()
-        return collision_world,collision_checker
+                
+            collision_checker=CollisionCheckerType.MESH
+            collision_world = c_world_config()
+        
+        print(collision_world, collision_checker)
+        return collision_world , collision_checker
+    
     def initalize_ik(self, 
         physics, 
         number_seeds=20,
@@ -205,11 +212,13 @@ class SimRobot:
         #print(new_target_pose)
         self.check_self_collision=check_self_collision
         self.check_world_collision=check_world_collision
-        self.use_primitive_collion=use_primitive_collisions
+        self.use_primitive_collision=use_primitive_collisions
         tensor_args = TensorDeviceType()
         
             
         collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        
+
         ik_config = IKSolverConfig.load_from_robot_config(
             self.curobo_robot_config,
             collision_world,
@@ -223,27 +232,33 @@ class SimRobot:
             use_cuda_graph=True,
         )
         self.ik_solver = IKSolver(ik_config)
+
     def solve_ik(
         self, 
         physics, 
         target_pos, 
         target_quat = None,
-        ):
+        collision_world = None,
+    ):
         """ solves single arm IK, helpful to check if a pose is achievable """
         ## Update world config
         target_quat = np.array([0,1,0,0]) if target_quat is None else target_quat 
-        robot_pos=np.concatenate((physics.named.data.xpos[self.name+"/"],
+        robot_pos=np.concatenate((  physics.named.data.xpos[self.name+"/"],
                                     physics.named.data.xquat[self.name+"/"]), axis=0)
         target_pos_list=np.concatenate((target_pos,
-                                    target_quat), axis=0)
+                                        target_quat), axis=0)
         new_target_pose=self.collision_world.transform_pose_robot(target_pos_list,robot_pose=robot_pos)
-        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        
+        collision_world,collision_checker=self.return_world_config_checker(physics, collision_world)
+        
         self.ik_solver.update_world(collision_world)
         goal_pose=Pose.from_list(new_target_pose)
         #print(goal_pose.quaternion)
         ik_result=self.ik_solver.solve_single(goal_pose=goal_pose)
         ik_result.get_unique_solution()
+        
         return ik_result.solution.detach().cpu().squeeze().numpy() if ik_result.success else None 
+    
     def initialize_motion_planner(
         self,
         physics,
@@ -258,20 +273,21 @@ class SimRobot:
         ):
         #self.check_self_collision=check_self_collision
         self.check_world_collision=check_world_collision
-        self.use_primitive_collion=use_primitive_collisions
+        self.use_primitive_collision=use_primitive_collisions
         tensor_args = TensorDeviceType()
-        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        collision_world,col_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
         
-        
+        print(col_checker)
         motion_gen_config=MotionGenConfig.load_from_robot_config(
-        self.curobo_robot_config,
-        collision_world,
-        interpolation_dt=interpolation_dt,
-        collision_checker_type=collision_checker,
-        collision_activation_distance=collision_activation_distance,
-        trajopt_dt=trajopt_dt,
-        position_threshold=position_threshold,
-        rotation_threshold=rotation_threshold)
+            self.curobo_robot_config,
+            collision_world,
+            interpolation_dt=interpolation_dt,
+            collision_checker_type=col_checker,
+            collision_activation_distance=collision_activation_distance,
+            trajopt_dt=trajopt_dt,
+            position_threshold=position_threshold,
+            rotation_threshold=rotation_threshold
+        )
         
         self.motion_generator=MotionGen(motion_gen_config)
         self.motion_generator.warmup()

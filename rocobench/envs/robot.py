@@ -38,7 +38,6 @@ class SimRobot:
         use_ee_rest_quat: bool = False,
     ):
         
-        pass
         self.name=name
         self.constants=self.prepend_robot_name(name,robot_constants)
         #self.curobo_path=curobo_path
@@ -106,6 +105,7 @@ class SimRobot:
             physics.model.body(_name).id for _name in self.collision_link_names
         ]
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
+    
     def prepend_robot_name(self,name:str,constants: dict):
         result = dict()
         result["name"] = name

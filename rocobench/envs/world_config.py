@@ -196,7 +196,7 @@ class WorldConfig():
 
         for object_type in self.world_config:
             
-            print("Updating Type: ", object_type)
+            # print("Updating Type: ", object_type)
 
             object_dict = self.world_config[object_type]
             

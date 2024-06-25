@@ -534,4 +534,22 @@ class VisionSensorOutput:
         image[0, 2] = (self.width - 1) / 2.0
         image[1, 2] = (self.height - 1) / 2.0
         return image @ focal @ rotation @ translation
- 
+
+def prepend_robot_name(name: str , constants: Dict):
+    result = {}
+    result["name"] = name
+    for key, value in constants.items():
+        if key == 'name':
+            continue
+
+        if key == "actuator_info":
+            result[key] = {name + "/" + x: name + "/" + y for x, y in value.items()}
+        elif key == "mesh_to_geoms":
+            result[key] = {x: [name + "/" + y for y in z] for x, z in value.items()}
+
+        elif isinstance(constants[key],str):
+            result[key] = name + '/' + value
+        else:
+            result[key] = [name + "/" + x for x in value]
+
+    return result

@@ -57,13 +57,18 @@ class MultiArmCurobo:
         config_list=[]
         pose_list=[]
         self.names_list=[]
+
         for name, robot in self.robots.items():
-            names_list.append(name)
+            self.names_list.append(name)
             with open(robot.yaml_path, 'r') as f:
                 config_list.append(yaml.load(f, Loader=yaml.SafeLoader))
+            
             urdf_list.append(URDF.load(robot.urdf_path))
-            pose_list.append(np.concatenate((physics.named.data.xpos[self.name+"/"],
-                                    physics.named.data.xquat[self.name+"/"]), axis=0).tolist())
+            pose_list.append(
+                np.concatenate((    physics.named.data.xpos[name+"/"],
+                                    physics.named.data.xquat[name+"/"]), 
+                                    axis=0).tolist()
+            )
             self.all_joint_names.extend(
                 robot.ik_joint_names
             ) 
@@ -76,14 +81,18 @@ class MultiArmCurobo:
             self.all_collision_link_names.extend(
                 robot.collision_link_names
             )
-        self.primary_robot_name=names_list[0]
+
+        self.primary_robot_name=self.names_list[0]
         #self.set_inhand_info(physics, inhand_object_info)
         combined_urdf=self.add_robots_urdf(urdf_list=urdf_list,pose_list=pose_list,name='_'.join(list(self.robots.keys())))
         combined_urdf.save(os.path.join(get_assets_path(),'robot/','_'.join(list(self.robots.keys()))))
         combined_yaml_dict=self.combine_yaml_kinematics(config_list=config_list, combined_urdf_path=os.path.join("robot",'_'.join(list(self.robots.keys()))))
+        
         self.robot_config=RobotConfig.from_dict(combined_yaml_dict)
+        
         if mjcf_model is not None:
             self.collision_world=WorldConfig(mjcf_model,physics,skip_robot_name=list(self.robots.keys()))
+        
         self.joint_minmax = np.array([jrange for jrange in self.all_joint_ranges])
         self.joint_ranges = self.joint_minmax[:, 1] - self.joint_minmax[:, 0]
 
@@ -97,6 +106,7 @@ class MultiArmCurobo:
         pose_matrix[0:3,3]=pose[0:3]
         pose_matrix[0:3,0:3]=rot.as_matrix()
         return pose_matrix
+    
     def clean_robot(self,urdf_object,append_string="_1"):
         for link in urdf_object.links:
             link.name=link.name+append_string
@@ -105,6 +115,7 @@ class MultiArmCurobo:
             joint.parent=joint.parent+append_string
             joint.child=joint.child+append_string
         return urdf_object
+    
     def add_robots_urdf(self,urdf_list,pose_list,name):
         assert len(urdf_list)==len(pose_list),'inputs should be of same length'
         base_link=Link('base_fixture_link',None,visuals=[urdfpy.Visual(urdfpy.Geometry(sphere=urdfpy.Sphere(0.1)))],collisions=None)
@@ -120,6 +131,7 @@ class MultiArmCurobo:
             #print(link.name)
         #kinematics={}
         return URDF(name,links=new_links,joints=new_joints)
+    
     def combine_yaml_kinematics(self,config_list,combined_urdf_path):
         kinematic_list=[]
         for config in config_list:
@@ -203,6 +215,7 @@ class MultiArmCurobo:
         
         print(collision_world, collision_checker)
         return collision_world , collision_checker
+    
     def forward_kinematics_all(
         self,
         q: np.ndarray,
@@ -268,7 +281,6 @@ class MultiArmCurobo:
         # physics.step(10) # to make sure the physics is stable
         return physics # a copy of the original physics object 
  
-    
     def initalize_ik(self, 
         physics, 
         number_seeds=20,
@@ -303,6 +315,7 @@ class MultiArmCurobo:
             use_cuda_graph=True,
         )
         self.ik_solver = IKSolver(ik_config)
+    
     def solve_ik(
         self,
         physics, 
@@ -324,7 +337,6 @@ class MultiArmCurobo:
         ik_result.get_unique_solution()
         
         return ik_result.solution.detach().cpu().squeeze().numpy() if ik_result.success else None 
-
 
     def initialize_motion_planner(
         self,
@@ -358,6 +370,7 @@ class MultiArmCurobo:
         
         self.motion_generator=MotionGen(motion_gen_config)
         self.motion_generator.warmup()
+    
     def plan(
         self,
         physics, 

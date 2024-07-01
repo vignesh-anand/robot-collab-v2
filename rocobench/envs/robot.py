@@ -111,8 +111,7 @@ class SimRobot:
             physics.model.body(_name).id for _name in self.collision_link_names
         ]
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
-
-    
+  
     def prepend_robot_name(self,name:str,constants: dict):
         result = dict()
         result["name"] = name
@@ -154,11 +153,13 @@ class SimRobot:
         if self.use_ee_rest_quat:
             ee_quat = quaternions.qmult(ee_quat, self.ee_rest_quat)
         return Pose(position=ee_pos, orientation=ee_quat)
+    
     def fk(self,q,physics):
         if q is not None:
             q=torch.tensor(q,**vars(self.tensor_args))
             out=self.kinematic_model.get_state(q)
             return Pose(position=out.ee_pose.detach().cpu(),orientation=out.ee_quaternion.detach().cpu())
+    
     def map_qpos_to_joint_ctrl(self, qpos: np.ndarray) -> Dict[str, np.ndarray]:
         """ Map the full qpos to the joint ctrl """
         assert len(qpos) > len(self.joint_idxs_in_qpos), f"qpos: {qpos} should be full state"

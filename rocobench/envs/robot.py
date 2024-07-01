@@ -18,6 +18,7 @@ from curobo.types.robot import JointState
 from curobo.wrap.reacher.motion_gen import MotionGen, MotionGenConfig, MotionGenPlanConfig
 from curobo.geom.sdf.world import CollisionCheckerType
 from curobo.geom.types import WorldConfig as c_world_config
+from curobo.cuda_robot_model.cuda_robot_model import CudaRobotModel, CudaRobotModelConfig
 from curobo.util_file import (
     get_robot_configs_path,
     get_world_configs_path,
@@ -56,10 +57,10 @@ class SimRobot:
 
         self.actuator_info = self.constants['actuator_info']
         self.weld_body_name = self.constants['weld_body_name']
-        self.curobo_robot_config = RobotConfig.from_dict(
-            load_yaml(yaml_path)["robot_cfg"]
-        )
-
+        self.curobo_robot_config=RobotConfig.from_dict(
+        load_yaml(yaml_path)["robot_cfg"])
+        self.kinematic_model=CudaRobotModel(self.curobo_robot_config)
+        self.tensor_args = TensorDeviceType()
         if mjcf_model is not None:
             self.collision_world=WorldConfig(mjcf_model,physics,skip_robot_name=name)
         
@@ -153,7 +154,11 @@ class SimRobot:
         if self.use_ee_rest_quat:
             ee_quat = quaternions.qmult(ee_quat, self.ee_rest_quat)
         return Pose(position=ee_pos, orientation=ee_quat)
- 
+    def fk(self,q,physics):
+        if q is not None:
+            q=torch.tensor(q,**vars(self.tensor_args))
+            out=self.kinematic_model.get_state(q)
+            return Pose(position=out.ee_pose.detach().cpu(),orientation=out.ee_quaternion.detach().cpu())
     def map_qpos_to_joint_ctrl(self, qpos: np.ndarray) -> Dict[str, np.ndarray]:
         """ Map the full qpos to the joint ctrl """
         assert len(qpos) > len(self.joint_idxs_in_qpos), f"qpos: {qpos} should be full state"

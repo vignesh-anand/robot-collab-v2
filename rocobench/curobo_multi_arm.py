@@ -11,7 +11,8 @@ from dm_control.utils.transformations import mat_to_quat, quat_to_euler, euler_t
 
 from rocobench.rrt import direct_path, smooth_path, birrt, NearJointsUniformSampler, CenterWaypointsUniformSampler
 from rocobench.envs import SimRobot 
-from rocobench.envs.env_utils import Pose
+#from rocobench.envs.env_utils import Pose
+from curobo.types.math import Pose
 from curobo.util_file import (
     get_robot_configs_path,
     get_assets_path,
@@ -26,7 +27,13 @@ from urdfpy import URDF,Link,Joint
 import os
 import copy
 from scipy.spatial.transform import Rotation
+from curobo.geom.sdf.world import CollisionCheckerType
+from curobo.geom.types import WorldConfig as c_world_config
+from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
+from curobo.types.robot import JointState
+from curobo.wrap.reacher.motion_gen import MotionGen, MotionGenConfig, MotionGenPlanConfig
 from rocobench.envs.world_config import WorldConfig
+from curobo.types.base import TensorDeviceType
 
 class MultiArmCurobo:
     """ Stores the info for a group of arms and plan all the combined joints together """
@@ -49,8 +56,10 @@ class MultiArmCurobo:
         urdf_list=[]
         config_list=[]
         pose_list=[]
+        self.names_list=[]
         for name, robot in self.robots.items():
-            with open('/home/vignesh/curobo/src/curobo/content/configs/robot/ur5e.yml', 'r') as f:
+            names_list.append(name)
+            with open(robot.yaml_path, 'r') as f:
                 config_list.append(yaml.load(f, Loader=yaml.SafeLoader))
             urdf_list.append(URDF.load(robot.urdf_path))
             pose_list.append(np.concatenate((physics.named.data.xpos[self.name+"/"],
@@ -67,7 +76,7 @@ class MultiArmCurobo:
             self.all_collision_link_names.extend(
                 robot.collision_link_names
             )
-        
+        self.primary_robot_name=names_list[0]
         #self.set_inhand_info(physics, inhand_object_info)
         combined_urdf=self.add_robots_urdf(urdf_list=urdf_list,pose_list=pose_list,name='_'.join(list(self.robots.keys())))
         combined_urdf.save(os.path.join(get_assets_path(),'robot/','_'.join(list(self.robots.keys()))))
@@ -79,7 +88,7 @@ class MultiArmCurobo:
         self.joint_ranges = self.joint_minmax[:, 1] - self.joint_minmax[:, 0]
 
         # assign a list of allowed grasp ids to each robot
-        
+        tensor_args = TensorDeviceType()
         
     def pose_list_to_pose_matrix(self,pose):
         pose_matrix=np.eye(4)
@@ -176,6 +185,24 @@ class MultiArmCurobo:
         new_kinematics['use_global_cumul']=use_global_cumul
         new_kinematics['cspace']=cspace
         return {'robot_cfg':{'kinematics':new_kinematics}}
+    
+    def return_world_config_checker(self, physics, collision_world = None):
+        
+        collision_checker = CollisionCheckerType.PRIMITIVE if self.use_primitive_collision else CollisionCheckerType.MESH
+
+        if collision_world is None and self.check_world_collision:
+            self.collision_world.update_curobo_world(physics)
+            if self.use_primitive_collision:
+                collision_world=self.collision_world.get_as_obb()
+            else:
+                collision_world=self.collision_world.get_as_class()
+        elif not self.check_world_collision:
+                
+            collision_checker=CollisionCheckerType.MESH
+            collision_world = c_world_config()
+        
+        print(collision_world, collision_checker)
+        return collision_world , collision_checker
     def forward_kinematics_all(
         self,
         q: np.ndarray,
@@ -242,214 +269,128 @@ class MultiArmCurobo:
         return physics # a copy of the original physics object 
  
     
-    def check_joint_range(
-        self, 
-        physics,
-        joint_names,
-        qpos_idxs,
-        ik_result,
-        allow_err=0.03,
-    ) -> bool:
-        _lower, _upper = physics.named.model.jnt_range[joint_names].T
-        qpos = ik_result.qpos[qpos_idxs]
-        assert len(qpos) == len(_lower) == len(_upper), f"Shape mismatch: qpos: {qpos}, _lower: {_lower}, _upper: {_upper}"
-        for i, name in enumerate(joint_names):
-            if qpos[i] < _lower[i] - allow_err or qpos[i] > _upper[i] + allow_err:
-                # print(f"Joint {name} out of range: {_lower[i]} < {qpos[i]} < {_upper[i]}")
-                return False 
-        return True
+    def initalize_ik(self, 
+        physics, 
+        number_seeds=20,
+        position_threshold=1e-3,
+        rotation_threshold=5e-2,
+        check_self_collision=True,
+        check_world_collision=False,
+        collision_world=None,
+        use_primitive_collisions=True
+        ):
+        
+        #print(new_target_pose)
+        self.check_self_collision=check_self_collision
+        self.check_world_collision=check_world_collision
+        self.use_primitive_collision=use_primitive_collisions
+        tensor_args = TensorDeviceType()
+        
+            
+        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        
 
+        ik_config = IKSolverConfig.load_from_robot_config(
+            self.robot_config,
+            collision_world,
+            rotation_threshold=rotation_threshold,
+            position_threshold=position_threshold,
+            collision_checker_type=collision_checker,
+            num_seeds=number_seeds,
+            self_collision_check=check_self_collision,
+            self_collision_opt=check_self_collision,
+            tensor_args=tensor_args,
+            use_cuda_graph=True,
+        )
+        self.ik_solver = IKSolver(ik_config)
     def solve_ik(
         self,
-        physics,
-        site_name,
-        target_pos,
-        target_quat,
-        joint_names, 
-        tol=1e-14,
-        max_steps=300,
-        max_resets=20,
-        inplace=True, 
-        max_range_steps=0,
-        qpos_idxs=None,
-        allow_grasp=True,
-        check_grasp_ids=None,
-        check_relative_pose=False
+        physics, 
+        target_pos, 
+        collision_world = None
     ):
-        physics_cp = physics.copy(share_model=True)
+        physics_cp = physics.copy(share_model=True) 
         
-        def reset_fn(physics):
-            model = physics.named.model 
-            _lower, _upper = model.jnt_range[joint_names].T
-            
-            curr_qpos = physics.named.data.qpos[joint_names]
-            # deltas = (_upper - _lower) / 2
-            # new_qpos = self.np_random.uniform(low=_lower, high=_upper)
-            new_qpos = self.np_random.uniform(low=curr_qpos-0.5, high=curr_qpos + 0.5)
-            new_qpos = np.clip(new_qpos, _lower, _upper)
-            physics.named.data.qpos[joint_names] = new_qpos
-            physics.forward()
+        
+        collision_world,collision_checker=self.return_world_config_checker(physics, collision_world)
+        self.ik_solver.update_world(collision_world)
+        primary_goal_pose=Pose.from_list(list(target_pos[self.primary_robot_name]))
+        other_poses={}
+        for name,pose in target_pos.items():
+            if name is not self.primary_robot_name:
+                other_poses[self.robots[name].curobo_robot_config.kinematics.kinematics_config.ee_link]=Pose.from_list(list(pose))
+        #print(goal_pose.quaternion)
+        ik_result=self.ik_solver.solve_single(goal_pose=primary_goal_pose,link_poses=other_poses)
+        ik_result.get_unique_solution()
+        
+        return ik_result.solution.detach().cpu().squeeze().numpy() if ik_result.success else None 
 
-        for i in range(max_resets):
-            # print(f"Resetting IK {i}")
-            if i > 0:
-                reset_fn(physics_cp)
-                
-            result = qpos_from_site_pose(
-                physics=physics_cp,
-                site_name=site_name,
-                target_pos=target_pos,
-                target_quat=target_quat,
-                joint_names=joint_names,
-                tol=tol,
-                max_steps=max_steps,
-                inplace=True,
-            )
-            need_reset = False
-            if result.success:
-                in_range = True 
-                collided = False
-                if qpos_idxs is not None:
-                    in_range = self.check_joint_range(physics_cp, joint_names, qpos_idxs, result)
-                    ik_qpos = result.qpos.copy()
-                    _low, _high = physics_cp.named.model.jnt_range[joint_names].T
-                    ik_qpos[qpos_idxs] = np.clip(
-                        ik_qpos[qpos_idxs], _low, _high
-                    )
-                    ik_qpos = ik_qpos[self.all_joint_idxs_in_qpos]
-                    # print('checking collision on IK result: step {}'.format(i))
-                    collided = self.check_collision(
-                        physics=physics_cp,
-                        robot_qpos=ik_qpos,
-                        check_grasp_ids=check_grasp_ids,
-                        allow_grasp=allow_grasp,
-                        check_relative_pose=check_relative_pose,
-                        )
 
-                need_reset = (not in_range) or collided
-
-            else:
-                need_reset = True
-            if not need_reset:
-                break
-        # img = physics_cp.render(camera_id='teaser', height=400, width=400)
-        # plt.imshow(img)
-        # plt.show()
-
-        return result if result.success else None
-
-    def inverse_kinematics_all(
+    def initialize_motion_planner(
         self,
         physics,
-        ee_poses: Dict[str, Pose],
-        inplace=False, 
-        allow_grasp=True, 
-        check_grasp_ids=None,
-        check_relative_pose=False,
-    ) -> Dict[str, Union[None, np.ndarray]]:
-
-        if physics is None:
-            physics = self.physics
-        physics = physics.copy(share_model=True)
-        results = dict() 
-        for robot_name, target_ee in ee_poses.items():
-            assert robot_name in self.robots, f"robot_name: {robot_name} not in self.robots"
-            robot = self.robots[robot_name]
-            pos = target_ee.position 
-            quat = target_ee.orientation
-            if robot.use_ee_rest_quat:
-                quat = quaternions.qmult(
-                    quat, robot.ee_rest_quat
-                ), # TODO 
-            # print(robot.ee_site_name, pos, quat, robot.joint_names)
-            qpos_idxs = robot.joint_idxs_in_qpos     
-            result = self.solve_ik(
-                physics=physics,
-                site_name=robot.ee_site_name,
-                target_pos=pos,
-                target_quat=quat,
-                joint_names=robot.ik_joint_names,
-                tol=1e-14,
-                max_steps=300,
-                inplace=inplace,  
-                qpos_idxs=qpos_idxs,
-                allow_grasp=allow_grasp, 
-                check_grasp_ids=check_grasp_ids,
-                check_relative_pose=check_relative_pose,
-            )
-            if result is not None:
-                result_qpos = result.qpos[qpos_idxs].copy()
-                _lower, _upper = physics.named.model.jnt_range[robot.ik_joint_names].T
-                result_qpos = np.clip(result_qpos, _lower, _upper)
-                results[robot_name] = (result_qpos, qpos_idxs) 
-            else:
-                results[robot_name] = None
-        return results      
-
-
+        position_threshold=1e-3,
+        rotation_threshold=5e-2,
+        interpolation_dt=0.02,
+        trajopt_dt=0.25,
+        collision_activation_distance=0.01,
+        check_world_collision=False,
+        collision_world=None,
+        use_primitive_collisions=True
+        ):
+        #self.check_self_collision=check_self_collision
+        self.check_world_collision=check_world_collision
+        self.use_primitive_collision=use_primitive_collisions
+        tensor_args = TensorDeviceType()
+        collision_world,col_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        
+        print(col_checker)
+        motion_gen_config=MotionGenConfig.load_from_robot_config(
+            self.robot_config,
+            collision_world,
+            interpolation_dt=interpolation_dt,
+            collision_checker_type=col_checker,
+            collision_activation_distance=collision_activation_distance,
+            trajopt_dt=trajopt_dt,
+            position_threshold=position_threshold,
+            rotation_threshold=rotation_threshold
+        )
+        
+        self.motion_generator=MotionGen(motion_gen_config)
+        self.motion_generator.warmup()
     def plan(
-        self, 
-        start_qpos: np.ndarray,  # can be either full length or just the desired qpos for the joints 
-        goal_qpos: np.ndarray,
-        init_samples: Optional[List[np.ndarray]] = None,
-        allow_grasp: bool = False,
-        check_grasp_ids: Optional[Dict[str, int]] = None,
-        skip_endpoint_collision_check: bool = False,
-        skip_direct_path: bool = False,
-        skip_smooth_path: bool = False,
-        timeout: int = 200,
-        check_relative_pose: bool = False,
-    ) -> Tuple[Optional[List[np.ndarray]], str]:
-
-        if len(start_qpos) != len(goal_qpos):
-            return None, "RRT failed: start and goal configs have different lengths."
-        if len(start_qpos) != len(self.all_joint_idxs_in_qpos):
-            start_qpos = start_qpos[self.all_joint_idxs_in_qpos]
-        if len(goal_qpos) != len(self.all_joint_idxs_in_qpos):
-            goal_qpos = goal_qpos[self.all_joint_idxs_in_qpos]
-  
-        def collision_fn(q: np.ndarray, show: bool = False):
-            return self.check_collision(
-                robot_qpos=q,
-                physics=self.physics,
-                allow_grasp=allow_grasp,           
-                check_grasp_ids=check_grasp_ids,  
-                check_relative_pose=check_relative_pose,
-                show=show,
-                # detect_grasp=False, TODO?
-            )
-        if not skip_endpoint_collision_check:
-            if collision_fn(start_qpos, show=1):
-                # print("RRT failed: start qpos in collision.")
-                return None, f"ReasonCollisionAtStart_time0_iter0"
-            elif collision_fn(goal_qpos, show=1): 
-                # print("RRT failed: goal qpos in collision.")
-                return None, "ReasonCollisionAtGoal_time0_iter0"
-        paths, info = birrt(
-                start_conf=start_qpos,
-                goal_conf=goal_qpos,
-                distance_fn=self.ee_l2_distance,
-                sample_fn=CenterWaypointsUniformSampler(
-                    bias=0.05,
-                    start_conf=start_qpos,
-                    goal_conf=goal_qpos,
-                    numpy_random=self.np_random,
-                    min_values=self.joint_minmax[:, 0],
-                    max_values=self.joint_minmax[:, 1],
-                    init_samples=init_samples,
-                ),
-                extend_fn=self.extend_ee_l2,
-                collision_fn=collision_fn,
-                iterations=800,
-                smooth_iterations=200,
-                timeout=timeout,
-                greedy=True,
-                np_random=self.np_random,
-                smooth_extend_fn=self.extend_ee_l2,
-                skip_direct_path=skip_direct_path,
-                skip_smooth_path=skip_smooth_path, # enable to make sure it passes through the valid init_samples 
-            )
-        if paths is None:
-            return None, f"RRT failed: {info}"
-        return paths, f"RRT succeeded: {info}"
- 
+        self,
+        physics, 
+        target_pos, 
+        target_quat = None,
+        start_state=None,
+        max_attempts=5,
+        time_dilation=0.5
+        ):
+        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        self.motion_generator.update_world(collision_world)
+        
+        tensor_args = TensorDeviceType()
+        primary_goal_pose=Pose.from_list(list(target_pos[self.primary_robot_name]))
+        other_poses={}
+        for name,pose in target_pos.items():
+            if name is not self.primary_robot_name:
+                other_poses[self.robots[name].curobo_robot_config.kinematics.kinematics_config.ee_link]=Pose.from_list(list(pose))
+        if start_state is None:
+            start_qpos=np.array([])
+            for name in self.names_list:
+                start_qpos=np.concatenate((start_qpos,physics.data.qpos(self.robots[name].joint_idxs_in_qpos)))  
+        else:
+            start_qpos=start_state
+        start_state=JointState.from_list(position=[start_qpos.tolist()],
+                                             velocity=[np.zeros_like(start_qpos).tolist()],
+                                             acceleration=[np.zeros_like(start_qpos).tolist()],
+                                             tensor_args=tensor_args)
+        result = self.motion_generator.plan_single(start_state, primary_goal_pose, MotionGenPlanConfig(max_attempts=max_attempts,time_dilation_factor=time_dilation),link_poses=other_poses)
+        
+        if result.success:
+            traj = result.get_interpolated_plan()
+            return traj.position.detach().cpu().numpy()
+        else:
+            return None
+        

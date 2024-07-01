@@ -61,23 +61,41 @@ class TaskObjectHandover(BaseTask):
 
         self.model.worldbody.add('light',pos="0 0 1.5",dir="0 0 -1",directional="true")
         self.model.worldbody.add('geom',name="floor",pos="0 0 -0.5",size="0 0 0.05", type="plane",material=groundplane)
+
         self.table_body=self.model.worldbody.add('body',name='table',pos='0 0.5 0')
-        self.table_body.add('geom',name='table_collision',pos='0 0 0.1',size='1.6 0.4 0.05', type='box', group='0', friction='1 0.5 0.0001',rgba='1 1 1 1')
+
+        self.table_body.add('geom',name='table_visual',pos='0 0 0.1',size='1.6 0.4 0.05', type='box', group='1', friction='1 0.5 0.0001',rgba='1 1 1 1')
+        self.table_body.add('geom',name='table_collision',pos='0 0 0.1',size='1.6 0.4 0.05', type='box', group='3', friction='1 0.5 0.0001',rgba='1 1 1 1')
 
         self.table_top_body = self.table_body.add('body',name='table_top',pos='0 0 0.1')
         self.table_top_body.add('geom',name='table_top',size='1.6 0.4 0.05',type='box',conaffinity='0',contype='0', group='1',rgba='1 1 1 1')
+        self.table_top_body.add('geom',name='table_top_collision',size='1.6 0.4 0.05',type='box',conaffinity='0',contype='0', group='3',rgba='1 1 1 1')
 
         self.table_body.add('geom',name='table_left',pos='-1.63 0 1', size='0.02 1.6 1.5', rgba='1 1 1 0', type='box')
         self.table_body.add('geom',name='table_right',pos='1.63 0 1', size='0.02 1.6 1.5', rgba='1 1 1 0', type='box')
         self.table_body.add('geom',name='table_front',pos='0 1.63 1', size='1.7 0.02 1.5', rgba='1 1 1 0', type='box')
         self.table_body.add('geom',name='table_back',pos='0 -1.63 1', size='1.7 0.02 1.5', rgba='1 1 1 0', type='box')
 
+        #Collision Meshes
+        self.table_body.add('geom',name='table_left_c',pos='-1.63 0 1', size='0.02 1.6 1.5', rgba='1 1 1 0', type='box', group = 3)
+        self.table_body.add('geom',name='table_right_c',pos='1.63 0 1', size='0.02 1.6 1.5', rgba='1 1 1 0', type='box', group = 3)
+        self.table_body.add('geom',name='table_front_c',pos='0 1.63 1', size='1.7 0.02 1.5', rgba='1 1 1 0', type='box', group = 3)
+        self.table_body.add('geom',name='table_back_c',pos='0 -1.63 1', size='1.7 0.02 1.5', rgba='1 1 1 0', type='box', group = 3)
+
         self.bin_body1 = self.table_top_body.add('body',name='bin1',pos='-0.5 0 0.05')
+        
         self.bin_body1.add('geom',name='bottom1',type='box',size='0.35 0.2 0.02',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body1.add('geom',name='front1',type='box',pos='0 0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body1.add('geom',name='back1',type='box',pos='0 -0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body1.add('geom',name='right1',type='box',pos='0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body1.add('geom',name='left1',type='box',pos='-0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood')
+
+        #Collision Meshes
+        self.bin_body1.add('geom',name='bottom1_c',type='box',size='0.35 0.2 0.02',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body1.add('geom',name='front1_c',type='box',pos='0 0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body1.add('geom',name='back1_c',type='box',pos='0 -0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body1.add('geom',name='right1_c',type='box',pos='0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body1.add('geom',name='left1_c',type='box',pos='-0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
 
         self.box = self.model.worldbody.add('body',name='black_box',pos='-0.5 0.5 0.1')
         self.box.add('freejoint', name='box_free')
@@ -85,25 +103,46 @@ class TaskObjectHandover(BaseTask):
         self.box.add('body',name='box_bottom',pos='0 0 -0.03')
         self.box.add('site',name='box_top',type='sphere',pos='0 0 0.03')
         self.box.add('site',name='box_bottom',type='sphere',pos='0 0 -0.03')
-        self.box.add('geom',name='box_collision',type='box',size='0.03 0.03 0.03',rgba='0 0 0 1')
+        self.box.add('geom',name='box',type='box',size='0.03 0.03 0.03',rgba='0 0 0 1')
+        self.box.add('geom',name='box_collision',type='box',size='0.03 0.03 0.03',rgba='0 0 0 1', group = 3)
 
         self.bin_body2 = self.table_top_body.add('body',name='bin2',pos='0.5 0 0.05')
+        
         self.bin_body2.add('geom',name='bottom2',type='box',size='0.35 0.2 0.02',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body2.add('geom',name='front2',type='box',pos='0 0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body2.add('geom',name='back2',type='box',pos='0 -0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body2.add('geom',name='right2',type='box',pos='0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood')
         self.bin_body2.add('geom',name='left2',type='box',pos='-0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood')
 
+        #Collision Meshes
+        self.bin_body2.add('geom',name='bottom2_c',type='box',size='0.35 0.2 0.02',friction="1 0.005 0.0001",material='light-wood')
+        self.bin_body2.add('geom',name='front2_c',type='box',pos='0 0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body2.add('geom',name='back2_c',type='box',pos='0 -0.2 0.1',size='0.35 0.02 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body2.add('geom',name='right2_c',type='box',pos='0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+        self.bin_body2.add('geom',name='left2_c',type='box',pos='-0.35 0 0.1',size='0.02 0.2 0.06',friction="1 0.005 0.0001",material='light-wood', group = 3)
+
         self.bin_body = self.model.worldbody.add('body', name="bin", pos="0.45 0.5 0.16")
         self.bin_inside_body = self.bin_body.add('body', name="bin_inside", pos="0 0 0")
-        self.bin_inside_body.add('geom', name="bin_inside_bottom", pos="0 0 0", size="0.35 0.2 0.02", type="box", group="3", friction="1 0.005 0.0001", material="light-wood")
-        self.bin_inside_body.add('geom', name="bin_inside_front", pos="0 0.2 0.03", size="0.35 0.01 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood")
-        self.bin_inside_body.add('geom', name="bin_inside_back", pos="0 -0.2 0.03", size="0.35 0.01 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood")
-        self.bin_inside_body.add('geom', name="bin_inside_right", pos="0.38 0 0.03", size="0.01 0.18 0.06", type="box", group="3", friction="1 0.005 0.0001", rgba="1 0 0 0")
-        self.bin_inside_body.add('geom', name="bin_inside_left", pos="-0.38 0 0.03", size="0.01 0.18 0.06", type="box", group="3", friction="1 0.005 0.0001", rgba="1 0 0 0" )
+        
+        self.bin_inside_body.add('geom', name="bin_inside_bottom", pos="0 0 0", size="0.35 0.2 0.02", type="box", friction="1 0.005 0.0001", material="light-wood")
+        self.bin_inside_body.add('geom', name="bin_inside_front", pos="0 0.2 0.03", size="0.35 0.01 0.06", type="box", friction="1 0.005 0.0001", material="light-wood")
+        self.bin_inside_body.add('geom', name="bin_inside_back", pos="0 -0.2 0.03", size="0.35 0.01 0.06", type="box", friction="1 0.005 0.0001", material="light-wood")
+        self.bin_inside_body.add('geom', name="bin_inside_right", pos="0.38 0 0.03", size="0.01 0.18 0.06", type="box", friction="1 0.005 0.0001", rgba="1 0 0 0")
+        self.bin_inside_body.add('geom', name="bin_inside_left", pos="-0.38 0 0.03", size="0.01 0.18 0.06", type="box", friction="1 0.005 0.0001", rgba="1 0 0 0" )
 
-        self.bin_body.add('geom', name="bin_right", pos="0.35 0 0.03", size="0.01 0.2 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
-        self.bin_body.add('geom', name="bin_left", pos="-0.35 0 0.03", size="0.01 0.2 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
+        #Collision Meshes
+        self.bin_inside_body.add('geom', name="bin_inside_bottom_c", pos="0 0 0", size="0.35 0.2 0.02", type="box", group="3", friction="1 0.005 0.0001", material="light-wood")
+        self.bin_inside_body.add('geom', name="bin_inside_front_c", pos="0 0.2 0.03", size="0.35 0.01 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood")
+        self.bin_inside_body.add('geom', name="bin_inside_back_c", pos="0 -0.2 0.03", size="0.35 0.01 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood")
+        self.bin_inside_body.add('geom', name="bin_inside_right_c", pos="0.38 0 0.03", size="0.01 0.18 0.06", type="box", group="3", friction="1 0.005 0.0001", rgba="1 0 0 0")
+        self.bin_inside_body.add('geom', name="bin_inside_left_c", pos="-0.38 0 0.03", size="0.01 0.18 0.06", type="box", group="3", friction="1 0.005 0.0001", rgba="1 0 0 0" )
+
+        self.bin_body.add('geom', name="bin_right", pos="0.35 0 0.03", size="0.01 0.2 0.06", type="box", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
+        self.bin_body.add('geom', name="bin_left", pos="-0.35 0 0.03", size="0.01 0.2 0.06", type="box", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
+
+        #Collision Meshes
+        self.bin_body.add('geom', name="bin_right_c", pos="0.35 0 0.03", size="0.01 0.2 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
+        self.bin_body.add('geom', name="bin_left_c", pos="-0.35 0 0.03", size="0.01 0.2 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
 
 
     def home_pose(self,):

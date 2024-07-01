@@ -43,7 +43,6 @@ class SimRobot:
         
         self.name=name
         self.constants=self.prepend_robot_name(name,robot_constants)
-        #self.curobo_path=curobo_path
         self.urdf_path=urdf_path
         self.yaml_path=yaml_path
         self.ik_joint_names = self.constants['ik_joint_names']
@@ -57,15 +56,18 @@ class SimRobot:
 
         self.actuator_info = self.constants['actuator_info']
         self.weld_body_name = self.constants['weld_body_name']
-        self.curobo_robot_config=RobotConfig.from_dict(
-        load_yaml(yaml_path)["robot_cfg"]
+        self.curobo_robot_config = RobotConfig.from_dict(
+            load_yaml(yaml_path)["robot_cfg"]
         )
+
         if mjcf_model is not None:
             self.collision_world=WorldConfig(mjcf_model,physics,skip_robot_name=name)
+        
         self.joint_ranges = []
         self.joint_idxs_in_qpos = [] 
         self.joint_idxs_in_ctrl = []
         self.mjcf_model=mjcf_model
+        
         for _name in self.ik_joint_names:
             qpos_slice = physics.named.data.qpos._convert_key(_name)
             assert int(qpos_slice.stop - qpos_slice.start) == 1, "Only support single joint for now"
@@ -77,8 +79,7 @@ class SimRobot:
             actuator_name = self.actuator_info[_name]
             idx_in_ctrl = physics.named.data.ctrl._convert_key(actuator_name)
             self.joint_idxs_in_ctrl.append(idx_in_ctrl)
-        
-        
+         
         self.ee_link_body_ids = []
         for _name in self.ee_link_names:
             try:
@@ -109,8 +110,8 @@ class SimRobot:
             physics.model.body(_name).id for _name in self.collision_link_names
         ]
         self.home_qpos = physics.data.qpos[self.joint_idxs_in_qpos].copy()
-        #self.initalize_ik(physics=physics)
-        #self.initialize_motion_planner(physics=physics)
+
+    
     def prepend_robot_name(self,name:str,constants: dict):
         result = dict()
         result["name"] = name
@@ -130,6 +131,7 @@ class SimRobot:
                 result[key] = [self.name + "/" + x for x in value]
 
         return result
+    
     def set_home_qpos(self, env: MujocoSimEnv):
         env_cp = deepcopy(env)
         env_cp.reset()
@@ -184,20 +186,41 @@ class SimRobot:
         
         collision_checker = CollisionCheckerType.PRIMITIVE if self.use_primitive_collision else CollisionCheckerType.MESH
 
+        #CollisionCheckerType.MESH #
         if collision_world is None and self.check_world_collision:
             self.collision_world.update_curobo_world(physics)
+
             if self.use_primitive_collision:
-                collision_world=self.collision_world.get_as_obb()
+                collision_world = self.collision_world.get_as_obb()
             else:
-                collision_world=self.collision_world.get_as_class()
+                collision_world = self.collision_world.get_as_class()
+
         elif not self.check_world_collision:
-                
-            collision_checker=CollisionCheckerType.MESH
-            collision_world = c_world_config()
+            dummy_world_model = self.create_dummy_world()
+            if self.use_primitive_collision:
+                collision_world = c_world_config().create_obb_world(dummy_world_model)
+            else:
+                collision_world = c_world_config().create_collision_support_world(dummy_world_model)
+            
+            # collision_checker = CollisionCheckerType.MESH
+            # # collision_world = c_world_config.from_dict({"cylinder": {}, "cuboid": {}, "mesh": {}, "capsule": {}, "primitive": {}})
+            # collision_world = c_world_config().get_obb_world()
         
-        print(collision_world, collision_checker)
+        # print(collision_world, collision_checker)
         return collision_world , collision_checker
     
+    def create_dummy_world(self):
+        return c_world_config.from_dict(
+            {"cuboid": {    "dummy":
+                        {
+                            "dims": [0.001, 0.001, 0.001],
+                            "pose": np.array([0., 0., 2., 1, 0, 0, 0])
+                        }
+                    }
+            }
+        )
+
+
     def initalize_ik(self, 
         physics, 
         number_seeds=20,
@@ -205,31 +228,32 @@ class SimRobot:
         rotation_threshold=5e-2,
         check_self_collision=True,
         check_world_collision=False,
-        collision_world=None,
+        collision_world = None,
         use_primitive_collisions=True
-        ):
+    ):
         
-        #print(new_target_pose)
-        self.check_self_collision=check_self_collision
-        self.check_world_collision=check_world_collision
-        self.use_primitive_collision=use_primitive_collisions
+        self.check_self_collision = check_self_collision
+        self.check_world_collision = check_world_collision
+        self.use_primitive_collision = use_primitive_collisions
         tensor_args = TensorDeviceType()
         
             
-        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        collision_world, collision_checker = self.return_world_config_checker(
+            physics = physics,
+            collision_world = collision_world
+        )
         
-
         ik_config = IKSolverConfig.load_from_robot_config(
             self.curobo_robot_config,
             collision_world,
-            rotation_threshold=rotation_threshold,
-            position_threshold=position_threshold,
-            collision_checker_type=collision_checker,
-            num_seeds=number_seeds,
-            self_collision_check=check_self_collision,
-            self_collision_opt=check_self_collision,
-            tensor_args=tensor_args,
-            use_cuda_graph=True,
+            rotation_threshold = rotation_threshold,
+            position_threshold = position_threshold,
+            collision_checker_type = collision_checker,
+            num_seeds = number_seeds,
+            self_collision_check = check_self_collision,
+            self_collision_opt = check_self_collision,
+            tensor_args = tensor_args,
+            use_cuda_graph = True,
         )
         self.ik_solver = IKSolver(ik_config)
 
@@ -252,9 +276,9 @@ class SimRobot:
         collision_world,collision_checker=self.return_world_config_checker(physics, collision_world)
         
         self.ik_solver.update_world(collision_world)
+
         goal_pose=Pose.from_list(new_target_pose)
-        #print(goal_pose.quaternion)
-        ik_result=self.ik_solver.solve_single(goal_pose=goal_pose)
+        ik_result=self.ik_solver.solve_single(goal_pose = goal_pose)
         ik_result.get_unique_solution()
         
         return ik_result.solution.detach().cpu().squeeze().numpy() if ik_result.success else None 
@@ -270,14 +294,17 @@ class SimRobot:
         check_world_collision=False,
         collision_world=None,
         use_primitive_collisions=True
-        ):
+    ):
         #self.check_self_collision=check_self_collision
-        self.check_world_collision=check_world_collision
-        self.use_primitive_collision=use_primitive_collisions
-        tensor_args = TensorDeviceType()
-        collision_world,col_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        self.check_world_collision = check_world_collision
+        self.use_primitive_collision = use_primitive_collisions
+        collision_world , col_checker = self.return_world_config_checker(
+            physics, 
+            collision_world
+        )
+
+        print("Motion Plan:", collision_world, col_checker)
         
-        print(col_checker)
         motion_gen_config=MotionGenConfig.load_from_robot_config(
             self.curobo_robot_config,
             collision_world,
@@ -289,8 +316,9 @@ class SimRobot:
             rotation_threshold=rotation_threshold
         )
         
-        self.motion_generator=MotionGen(motion_gen_config)
+        self.motion_generator = MotionGen(motion_gen_config)
         self.motion_generator.warmup()
+    
     def plan(
         self,
         physics, 
@@ -298,34 +326,47 @@ class SimRobot:
         target_quat = None,
         start_state=None,
         max_attempts=5,
-        time_dilation=0.5
-        ):
-        collision_world,collision_checker=self.return_world_config_checker(physics=physics,collision_world=collision_world)
+        time_dilation=0.5,
+        collision_world = None
+    ):
+        collision_world, collision_checker = self.return_world_config_checker(
+            physics = physics,
+            collision_world = collision_world
+        )
+        
         self.motion_generator.update_world(collision_world)
+        
         target_quat = np.array([0,1,0,0]) if target_quat is None else target_quat 
-        robot_pos=np.concatenate((physics.named.data.xpos[self.collision_world.robot_name+"/"],
-                                    physics.named.data.xquat[self.collision_world.robot_name+"/"]), axis=0)
-        target_pos_list=np.concatenate((target_pos,
-                                    target_quat), axis=0)
-        new_target_pose=self.collision_world.transform_pose_robot(target_pos_list,robot_pose=robot_pos)
+        robot_pos = np.concatenate((physics.named.data.xpos[self.collision_world.robot_name+"/"],
+                                    physics.named.data.xquat[self.collision_world.robot_name+"/"]), 
+                                    axis=0
+                                )
+        target_pos_list=np.concatenate((target_pos, target_quat), axis=0)
+
+        new_target_pose = self.collision_world.transform_pose_robot(target_pos_list, robot_pose = robot_pos)
+        
         tensor_args = TensorDeviceType()
         goal_pose=Pose.from_list(new_target_pose)
-        if start_state is None:
-            start_qpos=physics.data.qpos[self.joint_idxs_in_qpos]
+        
+        start_qpos=physics.data.qpos[self.joint_idxs_in_qpos] if start_state is None else start_state
             
-        else:
-            start_qpos=start_state
-        start_state=JointState.from_list(position=[start_qpos.tolist()],
-                                             velocity=[np.zeros_like(start_qpos).tolist()],
-                                             acceleration=[np.zeros_like(start_qpos).tolist()],
-                                             tensor_args=tensor_args)
-        result = self.motion_generator.plan_single(start_state, goal_pose, MotionGenPlanConfig(max_attempts=max_attempts,time_dilation_factor=time_dilation))
+        start_state=JointState.from_list(
+            position=[start_qpos.tolist()],
+            velocity=[np.zeros_like(start_qpos).tolist()],
+            acceleration=[np.zeros_like(start_qpos).tolist()],
+            tensor_args=tensor_args
+        )
+        
+        result = self.motion_generator.plan_single(
+            start_state, 
+            goal_pose, 
+            MotionGenPlanConfig(max_attempts=max_attempts,time_dilation_factor=time_dilation)
+        )
         
         if result.success:
             traj = result.get_interpolated_plan()
-            return traj.position.detach().cpu().numpy()
+            return result, traj.position.detach().cpu().numpy()
         else:
-            return None
+            return result, None
         
-            
     

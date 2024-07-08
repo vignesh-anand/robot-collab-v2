@@ -27,7 +27,7 @@ class WorldConfig():
 
         self.generate_world_config(mesh_test=mesh_test, skip_robot_name=skip_robot_name)
         
-        self.update_curobo_world(physics=physics, robot_name=skip_robot_name)
+        self.update_curobo_world(physics=physics, robot_name=self.robot_name)
     
     def store_assets_in_dir(self, out_dir = None):
         from dm_control.mujoco.wrapper import util
@@ -182,13 +182,15 @@ class WorldConfig():
     """
     Update the Curobo World Config after making Changes to MJCF Environment
     """
-    def update_curobo_world(self, physics:Any = None, robot_name:str = None):
+    def update_curobo_world(self, physics:Any = None, robot_name: Union[List[str], str] = None):
         
         assert physics is not None, "Physics Model is None. Please provide a valid physics model."
 
         if robot_name is None:
             robot_name = self.robot_name
-        robot_name=robot_name+ "/"
+        
+        if robot_name != "world":
+            robot_name = robot_name + "/"
 
         robot_pos = np.concatenate((physics.named.data.xpos[robot_name],
                                     physics.named.data.xquat[robot_name]), axis=0)

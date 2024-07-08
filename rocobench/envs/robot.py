@@ -57,12 +57,14 @@ class SimRobot:
 
         self.actuator_info = self.constants['actuator_info']
         self.weld_body_name = self.constants['weld_body_name']
-        self.curobo_robot_config=RobotConfig.from_dict(
-        load_yaml(yaml_path)["robot_cfg"])
-        self.kinematic_model=CudaRobotModel(self.curobo_robot_config)
+
+        self.curobo_robot_config = RobotConfig.from_dict(
+            load_yaml(yaml_path)["robot_cfg"]
+        )
+        self.kinematic_model = CudaRobotModel(self.curobo_robot_config.kinematics)
         self.tensor_args = TensorDeviceType()
         if mjcf_model is not None:
-            self.collision_world=WorldConfig(mjcf_model,physics,skip_robot_name=name)
+            self.collision_world = WorldConfig(mjcf_model,physics,skip_robot_name=name)
         
         self.joint_ranges = []
         self.joint_idxs_in_qpos = [] 

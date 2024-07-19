@@ -310,8 +310,6 @@ class SimRobot:
             physics, 
             collision_world
         )
-
-        print("Motion Plan:", collision_world, col_checker)
         
         motion_gen_config=MotionGenConfig.load_from_robot_config(
             self.curobo_robot_config,

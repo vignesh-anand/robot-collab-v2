@@ -1,20 +1,20 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from typing import Callable, List, Optional, Tuple, Union, Dict, Set, Any, FrozenSet
+from typing import List, Union, Any
 import os
-from copy import deepcopy
 from curobo.geom.types import WorldConfig as curobo_WorldConfig
 from curobo.util_file import get_assets_path
+from dm_control.mujoco.wrapper import util
 
 class WorldConfig():
 
     def __init__(
         self, 
-        mjcf_model:Any, 
-        physics:Any, 
-        mesh_dir:str = "", 
+        mjcf_model: Any, 
+        physics: Any, 
+        mesh_dir: str = "", 
         skip_robot_name: Union[List[str], str] = "", 
-        mesh_test=False
+        mesh_test: bool = False
     ):
         self.world_config = {"cylinder": {}, "cuboid": {}, "mesh": {}, "capsule": {}}
         
@@ -30,23 +30,21 @@ class WorldConfig():
         self.update_curobo_world(physics=physics, robot_name=self.robot_name)
     
     def store_assets_in_dir(self, out_dir = None):
-        from dm_control.mujoco.wrapper import util
-    
-
+        
         if out_dir is None or out_dir == "":
             out_dir = self.physics.model.name + '_scene/'
             
-        out_dir=os.path.join(get_assets_path(),out_dir)
+        out_dir = os.path.join(get_assets_path(),out_dir)
         
         self.mesh_dir = out_dir
 
         assets = self.mjcf_model.get_assets() # this model is mjcf-created
         assets[self.physics.model.name + '_task.xml'] = self.mjcf_model.to_xml_string(precision=4)
         os.makedirs(out_dir, exist_ok=True)
+
         for filename, contents in assets.items():
             with open(os.path.join(out_dir, filename), 'wb') as f:
                 f.write(util.to_binary_string(contents))
-
 
     def get_as_dict(self):
         return self.world_config
@@ -58,15 +56,15 @@ class WorldConfig():
     def get_as_class(self):
         return curobo_WorldConfig.from_dict(self.world_config)
 
-    def save_obb_mesh(self, filename):
+    def save_obb_mesh(self, filename: str):
         w = self.get_as_obb()
         w.save_world_as_mesh(filename)
     
-    def save_world_mesh(self, filename):
+    def save_world_mesh(self, filename: str):
         w = self.get_as_class()
         w.save_world_as_mesh(filename)        
 
-    def get_mesh_filename(self, geom):
+    def get_mesh_filename(self, geom: Any) -> str:
         mesh_id = geom.dataid.item()
         mesh_name = self.physics.model.mesh(mesh_id).name
         mesh_file = self.mjcf_model.asset.mesh[mesh_name].file.get_vfs_filename()
@@ -162,7 +160,13 @@ class WorldConfig():
     - params are using Mujoco Convention for Orientation when passed in: (wxyz)
     - returned in Mujoco Convention
     """
-    def transform_pose_robot(self, object_pose: np.ndarray, robot_pose: np.ndarray, verbose: bool = False):
+    def transform_pose_robot(
+            self, 
+            object_pose: np.ndarray, 
+            robot_pose: np.ndarray, 
+            verbose: bool = False
+    ) -> np.ndarray:
+        
         robot_pose_x = robot_pose[:3]
         robot_pose_q = robot_pose[[4,5,6,3]]
         object_pose_x = object_pose[:3]
@@ -177,12 +181,16 @@ class WorldConfig():
         if verbose:
             print(object_pose_q,robot_pose_q,robot_r.inv().as_matrix(),object_r.as_matrix())
         
-        return np.concatenate(( new_pose_x, -new_quat.as_quat()[[3,0,1,2]] ))
+        return np.concatenate(( new_pose_x, - new_quat.as_quat()[[3,0,1,2]] ))
     
     """
     Update the Curobo World Config after making Changes to MJCF Environment
     """
-    def update_curobo_world(self, physics:Any = None, robot_name: Union[List[str], str] = None):
+    def update_curobo_world(
+            self, 
+            physics: Any = None, 
+            robot_name: Union[List[str], str] = None
+    ):
         
         assert physics is not None, "Physics Model is None. Please provide a valid physics model."
 
@@ -197,8 +205,6 @@ class WorldConfig():
         
 
         for object_type in self.world_config:
-            
-            # print("Updating Type: ", object_type)
 
             object_dict = self.world_config[object_type]
             

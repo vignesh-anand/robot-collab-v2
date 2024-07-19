@@ -13,9 +13,9 @@ import os
 class BaseTask():
     def __init__(
             self, 
-            model_name:str = "", 
-            project_root_dir:str  = "", 
-            filepath:str = None
+            model_name: str = "", 
+            project_root_dir: str  = "", 
+            filepath: str = None
     ):
         self.model = mjcf.RootElement(model=model_name) if filepath is None else mjcf.from_file(filepath)
         
@@ -62,7 +62,7 @@ class BaseTask():
     """
     Renders the scene through MuJoCo Renderer or NVISII
     """
-    def render(self, enable_nvisii = False):
+    def render(self, enable_nvisii: bool = False):
         pass
 
     """
@@ -77,7 +77,7 @@ class BaseTask():
     def add_robots(
             self,
             robot_dict: Dict[str, Dict[str, Any]] = {}, 
-            create_weld=False
+            create_weld: bool = False
     ):
         #Generalize for multiple robots/arms
         self.robot_models = {}
@@ -100,5 +100,5 @@ class BaseTask():
     """
     Gets the pose of the specified robot
     """
-    def get_robot_pose(self, robot_name):
+    def get_robot_pose(self, robot_name: str):
             return np.concatenate((self.physics.named.data.xpos[robot_name],self.physics.named.data.xquat[robot_name]),axis=0)

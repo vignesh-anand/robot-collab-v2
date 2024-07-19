@@ -19,9 +19,9 @@ class TaskObjectHandover(BaseTask):
             model_name : str = "task", 
             project_root_dir : str = "", 
             filepath : str = None, 
-            robots = None, 
-            reset_to_home_pose = False, 
-            create_weld=False
+            robots: Dict = None, 
+            reset_to_home_pose : bool = False, 
+            create_weld : bool =False
     ):
         
         super().__init__(model_name, project_root_dir, filepath) 
@@ -157,8 +157,12 @@ class TaskObjectHandover(BaseTask):
         # home_ctrl = panda_ctrl0+' '+ur5_ctrl0
 
         # 2 UR5s qpos: 
-        home_qpos = ur5_qpos0 + " " + ur5_qpos0
-        home_ctrl = ur5_ctrl0 + " " + ur5_ctrl0
+        # home_qpos = ur5_qpos0 + " " + ur5_qpos0
+        # home_ctrl = ur5_ctrl0 + " " + ur5_ctrl0
+
+        #Box + Panda + UR5 
+        home_qpos = box_qpos0 + ' ' + ur5_qpos0 + ' ' + ur5_qpos0
+        home_ctrl = ur5_ctrl0 + ' ' + ur5_ctrl0
 
         self.model.keyframe.add('key',name='home',
                                 qpos=home_qpos, 

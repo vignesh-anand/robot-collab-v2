@@ -93,10 +93,10 @@ class MultiArmCurobo:
         combined_urdf.show()
         combined_urdf.save(os.path.join(get_assets_path(),'robot/','_'.join(list(self.robots.keys()))))
         combined_yaml_dict=self.combine_yaml_kinematics(config_list=config_list, combined_urdf_path=os.path.join("robot",'_'.join(list(self.robots.keys()))))
-        print(combined_yaml_dict)
-        # import yaml as y
-        # pretty_yaml_str = y.dump(combined_yaml_dict, indent=4, default_flow_style=False)
-        # print(pretty_yaml_str)
+        #print(combined_yaml_dict)
+        import yaml as y
+        pretty_yaml_str = y.dump(combined_yaml_dict, indent=4, default_flow_style=False)
+        print(pretty_yaml_str)
 
 
         self.robot_config=RobotConfig.from_dict(combined_yaml_dict)
@@ -196,7 +196,8 @@ class MultiArmCurobo:
         
         for i in range(len(kinematic_list)):
             if isinstance(kinematic_list[i]['collision_spheres'],str):
-                with open(os.path.join(get_robot_configs_path(),'spheres'), 'r') as f:
+                robot_directory='/'.join(self.robots[self.names_list[i]].yaml_path.split('/')[0:-1])
+                with open(os.path.join(robot_directory,kinematic_list[i]['collision_spheres']), 'r') as f:
                     spheres_i = yaml.load(f, Loader=yaml.SafeLoader)['collision_spheres']
                     
             else:
@@ -205,7 +206,7 @@ class MultiArmCurobo:
             collison_sphere.update(spheres_i)
             links_names.append(kinematic_list[i]['ee_link']+'_'+str(i+1))
             if kinematic_list[i]['lock_joints'] is not None:
-                lock_joints.update({key+"_"+str(i+1):value for key,value in kinematic_list[i]['collision_spheres'].items()})
+                lock_joints.update({key+"_"+str(i+1):value for key,value in kinematic_list[i]['lock_joints'].items()})
             if kinematic_list[i]['extra_links'] is not None:
                 for k,v in kinematic_list[i]['extra_links'].items():
                     v['parent_link_name']+="_"+str(i+1)
@@ -458,6 +459,7 @@ class MultiArmCurobo:
                 start_qpos=np.concatenate((start_qpos,physics.data.qpos[self.robots[name].joint_idxs_in_qpos]))  
         else:
             start_qpos=start_state
+        print(start_qpos.shape)
         start_state = JointState.from_list(position=[start_qpos.tolist()],
                                            velocity=[np.zeros_like(start_qpos).tolist()],
                                            acceleration=[np.zeros_like(start_qpos).tolist()],

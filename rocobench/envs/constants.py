@@ -160,7 +160,7 @@ UR5E_SUCTION_CONSTANTS=dict(
 PANDA_CONSTANTS=dict(
     name="panda",
     all_joint_names=[
-        "panda_base_joint",
+        #"panda_base_joint",
         "joint1",
         "joint2",
         "joint3",
@@ -173,7 +173,7 @@ PANDA_CONSTANTS=dict(
 
         ],
     ik_joint_names=[
-        "panda_base_joint",
+        #"panda_base_joint",
         "joint1",
         "joint2",
         "joint3",
@@ -192,7 +192,7 @@ PANDA_CONSTANTS=dict(
         "joint7",
         ],
     actuator_info={
-        "panda_base_joint":"panda_base",
+        #"panda_base_joint":"panda_base",
         "joint1": "actuator1",
         "joint2": "actuator2",
         "joint3": "actuator3",

@@ -157,7 +157,7 @@ class TaskObjectHandover(BaseTask):
         # home_ctrl = panda_ctrl0+' '+ur5_ctrl0
 
         # 2 UR5s qpos: 
-        home_qpos = ur5_qpos0 + " " + ur5_qpos0
+        home_qpos = box_qpos0 + " " +ur5_qpos0 + " " + ur5_qpos0
         home_ctrl = ur5_ctrl0 + " " + ur5_ctrl0
 
         self.model.keyframe.add('key',name='home',

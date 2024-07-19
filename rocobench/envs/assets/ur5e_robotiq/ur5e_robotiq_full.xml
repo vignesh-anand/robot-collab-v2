@@ -185,7 +185,7 @@
                   <body name="ur5e_0_robotiq_gripper" pos="0 0.09 0" quat="0 0 1 1" > 
                     <body name="robotiq_base_mount" pos="0 0 0.007" childclass="2f85">
                       <geom class="2f85_visual" mesh="base_mount" material="2f85_black"/>
-                      <geom name="base_mount_collision" class="2f85_collision" mesh="base_mount"/>
+                      <geom name="base_mount_collision" class="2f85_collision" mesh="base_mount"/> 
                       <body name="2f85_base" pos="0 0 0.0038" quat="1 0 0 -1">
                         <inertial mass="0.777441" pos="0 -2.70394e-05 0.0354675" quat="1 -0.00152849 0 0"
                                 diaginertia="0.000260285 0.000225381 0.000152708"/>
@@ -341,4 +341,3 @@
         ctrl="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0"/>
 </keyframe>-->
 </mujoco>
-

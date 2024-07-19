@@ -88,10 +88,12 @@ class MultiArmCurobo:
 
         self.primary_robot_name=self.names_list[0]
         #self.set_inhand_info(physics, inhand_object_info)
+        print(pose_list)
         combined_urdf=self.add_robots_urdf(urdf_list=urdf_list,pose_list=pose_list,name='_'.join(list(self.robots.keys())))
+        combined_urdf.show()
         combined_urdf.save(os.path.join(get_assets_path(),'robot/','_'.join(list(self.robots.keys()))))
         combined_yaml_dict=self.combine_yaml_kinematics(config_list=config_list, combined_urdf_path=os.path.join("robot",'_'.join(list(self.robots.keys()))))
-        
+        print(combined_yaml_dict)
         # import yaml as y
         # pretty_yaml_str = y.dump(combined_yaml_dict, indent=4, default_flow_style=False)
         # print(pretty_yaml_str)

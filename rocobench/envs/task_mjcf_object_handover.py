@@ -21,8 +21,9 @@ class TaskObjectHandover(BaseTask):
             filepath : str = None, 
             robots: Dict = None, 
             reset_to_home_pose : bool = False, 
-            create_weld : bool =False
-    ):
+            create_weld : bool = False,
+            home_pose_key : str = "uu"
+    ) -> None:
         
         super().__init__(model_name, project_root_dir, filepath) 
         
@@ -38,8 +39,8 @@ class TaskObjectHandover(BaseTask):
     
         # #Add Robots
         self.add_robots(robot_dict=robots, create_weld=create_weld)
-
-        self.home_pose()
+            
+        self.home_pose(key=home_pose_key)
 
         # #If add cameras:
         self.add_cameras()
@@ -53,7 +54,7 @@ class TaskObjectHandover(BaseTask):
         if reset_to_home_pose:
             self.reset_to_home_pose()
 
-    def build_scene(self,):
+    def build_scene(self) -> None:
         self.light_wood_texture=self.model.asset.add('texture',file= self.project_root_dir + 'assets/objects/textures/light-wood.png',type="2d",name='tex-light-wood')
         self.light_wood=self.model.asset.add('material',name='light-wood',reflectance=0.2,texrepeat="15 15",texture='tex-light-wood',texuniform='true')
         checker = self.model.asset.add('texture', type='2d', builtin='checker', width=300, height=300, rgb1=[.2, .3, .4], rgb2=[.3, .4, .5])
@@ -145,30 +146,44 @@ class TaskObjectHandover(BaseTask):
         # self.bin_body.add('geom', name="bin_left_c", pos="-0.35 0 0.03", size="0.01 0.2 0.06", type="box", group="3", friction="1 0.005 0.0001", material="light-wood", margin="0.01")
 
 
-    def home_pose(self,):
-        panda_qpos0='0 0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04'
-        ur5_qpos0='0 -1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0 0 0'
-        box_qpos0='-0.5 0.5 0.22 0 0 0 0'
-        panda_ctrl0='0 0 0 0 -1.57079 0 1.57079 -0.7853 255'
-        ur5_ctrl0='0 1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0'
+    def home_pose(self, key) -> None:
 
-        #Box + Panda + UR5 
-        # home_qpos = box_qpos0 + ' ' + panda_qpos0 + ' ' + ur5_qpos0
-        # home_ctrl = panda_ctrl0+' '+ur5_ctrl0
+        box_qpos0 = '-0.5 0.5 0.22 0 0 0 0'
+        panda_ctrl0 = '0 0 0 0 -1.57079 0 1.57079 -0.7853 255'
+        ur5_ctrl0 = '0 1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0'
 
-        # 2 UR5s qpos: 
-        # home_qpos = ur5_qpos0 + " " + ur5_qpos0
-        # home_ctrl = ur5_ctrl0 + " " + ur5_ctrl0
+        #Panda + UR5
+        if key == "pu": 
+            panda_qpos0 = '0 0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04'
+            ur5_qpos0 = '0 -1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0 0 0'
 
-        #Box + Panda + UR5 
-        home_qpos = box_qpos0 + ' ' + ur5_qpos0 + ' ' + ur5_qpos0
-        home_ctrl = ur5_ctrl0 + ' ' + ur5_ctrl0
+            home_qpos = box_qpos0 + " " + panda_qpos0 + " " + ur5_qpos0
+            home_ctrl = panda_ctrl0 + " " + ur5_ctrl0
 
-        self.model.keyframe.add('key',name='home',
-                                qpos=home_qpos, 
-                                ctrl=home_ctrl)
+        # 2 UR5s qpos:
+        elif key == "uu":
+            ur5_qpos0 = '0 1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0 0 0'
+            ur5_qpos1 = '0 -1.5708 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0 0 0' 
 
-    def add_cameras(self):
+            home_qpos = box_qpos0 + " " + ur5_qpos0 + " " + ur5_qpos1
+            home_ctrl = ur5_ctrl0 + " " + ur5_ctrl0
+
+        # 2 Pandas qpos:
+        elif key == "pp":
+            panda_qpos0 = '0 0 0 0 1.57079 0 1.57079 -0.7853 0.04 0.04'
+            panda_qpos1 = '0 0 0 0 -1.57079 0 1.57079 -0.7853 0.04 0.04'
+
+            home_qpos = box_qpos0 + " " + panda_qpos0 + " " + panda_qpos1
+            home_ctrl = panda_ctrl0 + " " + panda_ctrl0
+
+        self.model.keyframe.add(
+            'key', 
+            name = 'home',
+            qpos = home_qpos, 
+            ctrl = home_ctrl
+        )
+
+    def add_cameras(self) -> None:
         self.model.worldbody.add('camera', mode="fixed", name='face_panda1', pos="0.062 -2.806 0.768", xyaxes="1.000 0.009 -0.000 0.001 -0.131 0.991")
         self.model.worldbody.add('camera', mode="fixed", name='face_panda2', pos="0.084 3.711 0.772", xyaxes="-1.000 0.016 0.000 0.002 0.111 0.994")
         self.model.worldbody.add('camera', mode="fixed", name='top_cam', pos="-0.001 0.652 2.057", xyaxes="-1.000 -0.000 -0.000 0.000 -1.000 0.019")
@@ -184,7 +199,7 @@ class TaskObjectHandover(BaseTask):
             qpos_id = None, 
             width=1080, 
             height=800
-    ):
+    ) -> PIL.Image:
         if qpos is None:
             # self.physics.reset()
             img = PIL.Image.fromarray(self.physics.render(camera_id=cam_id, width = width, height = height))
@@ -196,5 +211,5 @@ class TaskObjectHandover(BaseTask):
                 img = PIL.Image.fromarray(self.physics.render(camera_id=cam_id, width = width, height = height))
         return img
     
-    def reset_to_home_pose(self,):
+    def reset_to_home_pose(self,) -> None:
         self.physics.reset(0)
